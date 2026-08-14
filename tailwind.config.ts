@@ -21,6 +21,19 @@ const config: Config = {
         main: 'var(--main, #0669ff)',
         bg: '#262626',
         'bg-hover': '#404040',
+        'fc-accent': 'var(--fc-accent, #5b87ff)',
+        'fc-control': 'var(--fc-control, rgba(255, 255, 255, 0.06))',
+        'fc-control-hover':
+          'var(--fc-control-hover, var(--fc-surface-hover, rgba(255, 255, 255, 0.13)))',
+        'fc-border': 'var(--fc-border, rgba(255, 255, 255, 0.12))',
+        'fc-text': 'var(--fc-text, rgba(255, 255, 255, 0.96))',
+        'fc-text-muted': 'var(--fc-text-muted, rgba(255, 255, 255, 0.66))',
+      },
+      borderRadius: {
+        'fc-control': 'var(--fc-radius-control, var(--fc-radius-sm, 7px))',
+      },
+      transitionDuration: {
+        'fc-fast': 'var(--fc-duration-fast, var(--fc-fast, 120ms))',
       },
       width: {
         'side-width': 'var(--side-width, 200px)',

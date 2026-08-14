@@ -1,24 +1,26 @@
-import HiddenAble from '@root/components/HiddenAble'
 import classNames from 'classnames'
-import { FC, HTMLAttributes, PropsWithChildren } from 'react'
+import { ButtonHTMLAttributes, FC, PropsWithChildren } from 'react'
 
 type Props = {
   isUnActive?: boolean
 } & PropsWithChildren &
-  HTMLAttributes<HTMLDivElement>
+  Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>
+
 const ActionButton: FC<Props> = (props) => {
-  const { isUnActive, ..._props } = props
+  const { isUnActive, className, children, ...buttonProps } = props
+
   return (
-    // <HiddenAble>
-    <div
-      {..._props}
+    <button
+      {...buttonProps}
+      type="button"
       className={classNames(
-        'p-1 cursor-pointer hover:bg-[#333] rounded-sm transition-colors leading-[18px]',
-        isUnActive && 'opacity-50',
-        props.className,
+        'fc-action-button',
+        isUnActive && 'is-unactive',
+        className,
       )}
-    ></div>
-    // </HiddenAble>
+    >
+      {children}
+    </button>
   )
 }
 

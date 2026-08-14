@@ -4,29 +4,21 @@ import useAutoPIPHandler from '@root/hook/useAutoPIPHandler'
 import useDebounceTimeoutCallback from '@root/hook/useDebounceTimeoutCallback'
 import useTargetEventListener from '@root/hook/useTargetEventListener'
 import { VIDEO_ID_ATTR } from '@root/shared/config'
-import env from '@root/shared/env'
 import isPluginEnv from '@root/shared/isPluginEnv'
 import PostMessageEvent from '@root/shared/postMessageEvent'
-import { FLOAT_BTN_HIDDEN, LATEST_SAVE_VERSION } from '@root/shared/storeKey'
+import { FLOAT_BTN_HIDDEN } from '@root/shared/storeKey'
 import configStore from '@root/store/config'
 import { FloatButtonPos } from '@root/store/config/floatButton'
-import playerConfig from '@root/store/playerConfig'
 import { DocPIPRenderType } from '@root/types/config'
 import { throttle, tryCatch, uuid } from '@root/utils'
-import { getIsZh, t } from '@root/utils/i18n'
 import { postStartPIPDataMsg } from '@root/utils/pip'
-import {
-  setBrowserLocalStorage,
-  useBrowserLocalStorage,
-  useBrowserSyncStorage,
-} from '@root/utils/storage'
+import { useBrowserSyncStorage } from '@root/utils/storage'
 import { sendMediaStreamInSender } from '@root/utils/webRTC'
 import { onPostMessage, postMessageToTop } from '@root/utils/windowMessages'
-import getWebProvider from '@root/web-provider/getWebProvider'
 import { useMemoizedFn, useSize, useUnmount } from 'ahooks'
 import classNames from 'classnames'
 import { observer } from 'mobx-react'
-import { FC, SVGProps, useMemo, useRef, useState } from 'react'
+import { FC, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Browser from 'webextension-polyfill'
 import icon from '../../assets/icon.png'
@@ -43,25 +35,10 @@ const FloatButton: FC<Props> = (props) => {
   const { container, vel, fixedPos } = props
 
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [changeLog] = useState(() => {
-    const log = getIsZh() ? env.upgrade_zh : env.upgrade_en
-    return log || t('floatButton.smallUpdate')
-  })
-  const [savedVer, setSavedVer] = useState('')
-
   useOnce(() =>
     useBrowserSyncStorage(FLOAT_BTN_HIDDEN, (hidden) => {
       if (!floatBtn.current) return
       floatBtn.current.style.visibility = !hidden ? 'visible' : 'hidden'
-    }),
-  )
-
-  const [isUpgradeShow, setUpgradeShow] = useState(false)
-
-  useOnce(() =>
-    useBrowserLocalStorage(LATEST_SAVE_VERSION, (ver) => {
-      setUpgradeShow(ver !== env.version)
-      if (ver) setSavedVer(ver)
     }),
   )
 
@@ -230,8 +207,6 @@ const FloatButton: FC<Props> = (props) => {
   )
 
   const containerSize = useSize(container)
-  const floatBtnSize = useSize(floatBtn)
-
   const posStyle = useMemo(() => {
     switch (configStore.floatButtonPos) {
       case FloatButtonPos.leftBottom:
@@ -338,7 +313,7 @@ const FloatButton: FC<Props> = (props) => {
             ref={floatBtn}
             className={classNames(
               'rc-float-btn',
-              'group z-[100] text-[14px] text-white text-center cursor-pointer opacity-100 transition-opacity [&.hidden-btn]:opacity-0 hidden-btn',
+              'fc-floatbar z-[100] text-[14px] text-white text-center opacity-100 [&.hidden-btn]:opacity-0 hidden-btn',
             )}
             style={{ ...posStyle, position: 'absolute' }}
             onMouseEnter={() => {
@@ -350,12 +325,12 @@ const FloatButton: FC<Props> = (props) => {
               isHoverLockRef.current = false
             }}
           >
-            <div className="f-i-center w-fit overflow-hidden rounded h-[28px]">
-              <div
-                className={classNames(
-                  'start-pip-btn',
-                  'f-center wh-[32px,28px] bg-bg hover:bg-bg-hover transition-colors',
-                )}
+            <div className="fc-floatbar-inner">
+              <button
+                type="button"
+                className="start-pip-btn fc-float-button"
+                aria-label="打开浮幕小窗"
+                title="打开浮幕小窗"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleStartPIP()
@@ -365,48 +340,19 @@ const FloatButton: FC<Props> = (props) => {
                   className="wh-[16px]"
                   width={16}
                   height={16}
+                  alt=""
                   src={
                     isPluginEnv
                       ? `${Browser.runtime.getURL('/assets/icon.png')}`
                       : icon
                   }
                 />
-              </div>
-              {configStore.showReplacerBtn && (
-                <div
-                  className={classNames(
-                    'replace-btn',
-                    'f-center wh-[32px,28px] bg-bg hover:bg-bg-hover transition-colors',
-                  )}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const videoEl =
-                      container instanceof HTMLVideoElement
-                        ? container
-                        : container.querySelector('video')
-
-                    if (!videoEl) return
-                    videoRef.current = videoEl
-                    playerConfig.forceDocPIPRenderType =
-                      DocPIPRenderType.replaceWebVideoDom
-                    const provider = getWebProvider()
-                    window.provider = provider
-                    playerConfig.topContainerEl = props.container
-                    playerConfig.isFixedPos = !!fixedPos
-                    provider.openPlayer({
-                      videoEl,
-                    })
-                  }}
-                >
-                  <ReplaceIcon width={16} height={16} className="w-[16px]" />
-                </div>
-              )}
-              <div
-                className={classNames(
-                  'setting-btn',
-                  'f-center wh-[32px,28px] bg-bg hover:bg-bg-hover transition-colors',
-                )}
+              </button>
+              <button
+                type="button"
+                className="setting-btn fc-float-button"
+                aria-label="打开浮幕设置"
+                title="打开浮幕设置"
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -422,68 +368,8 @@ const FloatButton: FC<Props> = (props) => {
                 }}
               >
                 <SettingOutlined width={16} height={16} />
-              </div>
+              </button>
             </div>
-
-            {isUpgradeShow && (
-              <>
-                <div className="absolute top-[-2px] right-[-2px] rounded-full wh-[8px] bg-red-500"></div>
-                <div
-                  className={classNames(
-                    'absolute max-w-[250px] w-max bg-bg overflow-hidden max-h-0 transition-all group-hover:max-h-[300px] text-[12px] rounded',
-                    'flex flex-col',
-                    {
-                      'left-[var(--x)] top-[var(--y)]':
-                        configStore.floatButtonPos === FloatButtonPos.leftTop,
-                      'left-[var(--x)] bottom-[var(--y)]':
-                        configStore.floatButtonPos ===
-                        FloatButtonPos.leftBottom,
-                      'right-[var(--x)] top-[var(--y)]':
-                        configStore.floatButtonPos === FloatButtonPos.rightTop,
-                      'right-[var(--x)] bottom-[var(--y)]':
-                        configStore.floatButtonPos ===
-                        FloatButtonPos.rightBottom,
-                    },
-                  )}
-                  style={{
-                    '--y': 'calc(100% + 4px)',
-                    '--x': '0',
-                  }}
-                >
-                  <p className="f-i-center mb-1 px-1 pt-1">
-                    NEW: {savedVer || ''} -&gt; {env.version}{' '}
-                    <a
-                      href={
-                        'https://github.com/apades/dmMiniPlayer/blob/main/docs/changeLog' +
-                        `${getIsZh() ? '-zh' : ''}` +
-                        `.md#v${env.version.replaceAll('.', '')}`
-                      }
-                      target="_blank"
-                      className="ml-auto text-blue-500"
-                    >
-                      More
-                    </a>
-                  </p>
-                  <div className="flex-1 overflow-auto px-1 custom-scrollbar text-left whitespace-pre-wrap">
-                    {changeLog}
-                  </div>
-                  <div className="f-i-center px-1 pb-1">
-                    <div
-                      className="ml-auto cursor-pointer bg-bg-hover px-1 rounded"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        e.preventDefault()
-                        setBrowserLocalStorage(LATEST_SAVE_VERSION, env.version)
-                        setUpgradeShow(false)
-                        isHoverLockRef.current = false
-                      }}
-                    >
-                      OK
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
           {/* </DraggerContainer> */}
         </AppRoot>,
@@ -492,20 +378,5 @@ const FloatButton: FC<Props> = (props) => {
     </>
   )
 }
-
-const ReplaceIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" {...props}>
-    <path
-      fill="currentColor"
-      fillRule="evenodd"
-      d="M0 3.2c0-1.12 0-1.68.218-2.11C.41.714.716.408 1.092.216c.428-.218.988-.218 2.11-.218h.6c1.12 0 1.68 0 2.11.218c.376.192.682.498.874.874c.218.428.218.988.218 2.11v.6c0 1.12 0 1.68-.218 2.11a2 2 0 0 1-.874.874c-.428.218-.988.218-2.11.218h-.6c-1.12 0-1.68 0-2.11-.218a2 2 0 0 1-.874-.874C0 5.482 0 4.922 0 3.8zM3.2 1h.6c.577 0 .949 0 1.23.024c.272.022.372.06.422.085c.188.096.341.249.437.437c.025.05.063.15.085.422c.023.283.024.656.024 1.23v.6c0 .577 0 .949-.024 1.23c-.022.272-.06.372-.085.422a1 1 0 0 1-.437.437c-.05.025-.15.063-.422.085c-.283.023-.656.024-1.23.024h-.6c-.577 0-.949 0-1.23-.024c-.272-.022-.372-.06-.422-.085a1 1 0 0 1-.437-.437c-.025-.05-.063-.15-.085-.422a17 17 0 0 1-.024-1.23v-.6c0-.577 0-.949.024-1.23c.022-.272.06-.372.085-.422c.096-.188.249-.341.437-.437c.05-.025.15-.063.422-.085C2.253 1 2.626 1 3.2 1M9 12.2c0-1.12 0-1.68.218-2.11c.192-.376.498-.682.874-.874c.428-.218.988-.218 2.11-.218h.6c1.12 0 1.68 0 2.11.218c.376.192.682.498.874.874c.218.428.218.988.218 2.11v.6c0 1.12 0 1.68-.218 2.11a2 2 0 0 1-.874.874c-.428.218-.988.218-2.11.218h-.6c-1.12 0-1.68 0-2.11-.218a2 2 0 0 1-.874-.874C9 14.482 9 13.922 9 12.8zm3.8-2.2c.577 0 .949 0 1.23.024c.272.022.372.06.422.085c.188.096.341.249.437.437c.025.05.063.15.085.422c.023.283.024.656.024 1.23v.6c0 .577 0 .949-.024 1.23c-.022.272-.06.372-.085.422a1 1 0 0 1-.437.437c-.05.025-.15.063-.422.085c-.283.023-.656.024-1.23.024h-.6c-.577 0-.949 0-1.23-.024c-.272-.022-.372-.06-.422-.085a1 1 0 0 1-.437-.437c-.025-.05-.063-.15-.085-.422a17 17 0 0 1-.024-1.23v-.6c0-.577 0-.949.024-1.23c.022-.272.06-.372.085-.422c.096-.188.249-.341.437-.437c.05-.025.15-.063.422-.085c.283-.023.656-.024 1.23-.024z"
-      clipRule="evenodd"
-    />
-    <path
-      fill="currentColor"
-      d="M8 2.5a.5.5 0 0 1 .5-.5h2A2.5 2.5 0 0 1 13 4.5v1.79l1.15-1.15a.5.5 0 0 1 .707.707l-2 2a.5.5 0 0 1-.707 0l-2-2a.5.5 0 0 1 .707-.707l1.15 1.15V4.5a1.5 1.5 0 0 0-1.5-1.5h-2a.5.5 0 0 1-.5-.5zM3.31 8.04a.5.5 0 0 1 .188-.038h.006a.5.5 0 0 1 .351.146l2 2a.5.5 0 0 1-.707.707l-1.15-1.15v1.79a1.5 1.5 0 0 0 1.5 1.5h2a.5.5 0 0 1 0 1h-2a2.5 2.5 0 0 1-2.5-2.5v-1.79l-1.15 1.15a.5.5 0 0 1-.707-.707l2-2a.5.5 0 0 1 .162-.109z"
-    />
-  </svg>
-)
 
 export default observer(FloatButton)

@@ -52,7 +52,6 @@ import {
 import VolumeBar from './bottomPanel/VolumeBar'
 import vpContext, { ContextData, defaultVpContext } from './context'
 import DanmakuContainer from './DanmakuContainer'
-import { DanmakuInput, DanmakuInputIcon } from './DanmakuInput'
 import EventCenter from './EventCenter'
 import {
   useInWindowKeydown,
@@ -364,11 +363,8 @@ const VideoPlayerV2Inner = observer(
           configStore.vpActionAreaLock && ACTION_AREA_ACTIVE,
         )}
         style={{
-          '--color-main': '#0669ff',
-          '--area-height': '40px',
+          '--area-height': '48px',
           '--btn-size': '120px',
-          '--box-shadow': '0 2px 4px rgba(55, 60, 68, 0.2)',
-          '--c-text-main': 'rgba(0, 0, 0, 0.85)',
           '--side-width': configStore.sideWidth + 'px',
         }}
         ref={videoPlayerRef}
@@ -434,7 +430,7 @@ const VideoPlayerV2Inner = observer(
         {/* 底部操作栏 */}
         <div
           className={classNames(
-            'video-action-area w-full transition-all duration-500',
+            'video-action-area w-full transition-[bottom] duration-fc-fast ease-out',
             // tailwind 检测不到ACTION_AREA_ACTIVE这种动态参数
             `absolute bottom-[calc(-1*(var(--area-height)+5px))] group-[&.active]:bottom-0`,
           )}
@@ -453,22 +449,24 @@ const VideoPlayerV2Inner = observer(
 
           {!isLive && <PlayerProgressBar />}
 
-          <div className="opacity-0 group-[&.active]:opacity-100 transition-all duration-500">
-            <div className="mask w-full h-[calc(var(--area-height)+10px)] absolute bottom-0 bg-gradient-to-t from-[#000] opacity-70 z-[1]"></div>
-            <div className="actions text-white px-5 py-2 f-i-center relative z-[6] gap-3 h-area-height">
+          <div className="action-controls opacity-0 group-[&.active]:opacity-100 transition-opacity duration-fc-fast ease-out">
+            <div className="mask w-full h-[calc(var(--area-height)+24px)] absolute bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent z-[1]"></div>
+            <div className="actions text-fc-text px-4 py-2 f-i-center relative z-[6] gap-2 h-area-height">
               {configStore.bp_preVideo && (
-                <div className="-mr-2">
+                <div className="fc-narrow-hide -mr-2">
                   <ChangePreVideoButton />
                 </div>
               )}
               {configStore.bp_playToggle && <TogglePlayActionButton />}
               {configStore.bp_nextVideo && (
-                <div className="-ml-2">
+                <div className="fc-narrow-hide -ml-2">
                   <ChangeNextVideoButton />
                 </div>
               )}
 
-              <PlayedTime />
+              <div className="fc-narrow-hide text-[12px] tabular-nums text-fc-text-muted">
+                <PlayedTime />
+              </div>
 
               <div className="f-i-center gap-1">
                 {configStore.bp_subtitle && (
@@ -477,40 +475,60 @@ const VideoPlayerV2Inner = observer(
 
                 {configStore.bp_danmaku && <DanmakuSettingBtn />}
 
-                {configStore.bp_danmakuInput && (
-                  <DanmakuInputIcon danmakuSender={props.danmakuSender} />
-                )}
-
                 {configStore.bp_playbackRate && <PlaybackRateSelection />}
 
                 {configStore.bp_sharpening && <SharpeningButton />}
 
-                <ActionButton onClick={handleOpenSetting} className="mb:hidden">
+                <ActionButton
+                  aria-label="Open settings"
+                  title="Open settings"
+                  onClick={handleOpenSetting}
+                  className="fc-narrow-hide mb:hidden"
+                >
                   <SettingOutlined className="block" />
                 </ActionButton>
               </div>
 
               <div className="right ml-auto f-i-center gap-1">
-                {configStore.bp_resize && <ResizeButton />}
+                {configStore.bp_resize && (
+                  <div className="fc-narrow-hide">
+                    <ResizeButton />
+                  </div>
+                )}
                 {configStore.keyboardTips_show && (
-                  <QuestionCircleFilled
-                    className={classNames(
-                      'text-white cursor-pointer hover:text-[#fffa] transition-all',
-                      'text-[16px] px-2',
-                    )}
+                  <ActionButton
+                    aria-label="Keyboard shortcuts"
+                    title="Keyboard shortcuts"
+                    className="fc-narrow-hide"
                     onClick={keyboardTipsModal.openModal}
-                  />
+                  >
+                    <QuestionCircleFilled />
+                  </ActionButton>
                 )}
                 {configStore.bp_volume && <VolumeBar />}
                 {props.isReplacerMode && (
                   <>
                     <ActionButton
+                      aria-label={
+                        isFullInWeb ? 'Exit full page' : 'Enter full page'
+                      }
+                      aria-pressed={isFullInWeb}
+                      title={isFullInWeb ? 'Exit full page' : 'Enter full page'}
                       onClick={toggleFullInWeb}
                       className="ml-[6px]"
                     >
                       {isFullInWeb ? <ShrinkOutlined /> : <ArrowsAltOutlined />}
                     </ActionButton>
-                    <ActionButton onClick={toggleFullscreen}>
+                    <ActionButton
+                      aria-label={
+                        isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'
+                      }
+                      aria-pressed={isFullscreen}
+                      title={
+                        isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'
+                      }
+                      onClick={toggleFullscreen}
+                    >
                       {isFullscreen ? (
                         <FullscreenExitOutlined />
                       ) : (
@@ -524,9 +542,8 @@ const VideoPlayerV2Inner = observer(
           </div>
         </div>
 
-        <DanmakuInput danmakuSender={props.danmakuSender} />
         <DanmakuContainer />
-        <div className="group-[&.active]:opacity-0 transition-all">
+        <div className="group-[&.active]:opacity-0 transition-opacity duration-fc-fast">
           <CurrentTimeTooltipsWithKeydown />
         </div>
 
@@ -534,18 +551,25 @@ const VideoPlayerV2Inner = observer(
         <VideoPlayerSide />
 
         {props.isReplacerMode && (
-          <div
+          <button
+            type="button"
+            aria-label="Close player"
+            title="Close player"
             className={classNames(
-              'absolute right-[20px] top-0 z-20 group-[&.active]:top-[20px]',
+              'absolute right-[16px] top-0 z-20 group-[&.active]:top-[16px]',
               'opacity-0 group-[&.active]:opacity-100',
-              'rounded-full wh-[40px] cursor-pointer text-white bg-bg hover:bg-bg-hover text-[22px] f-center transition-all',
+              'appearance-none border border-solid border-fc-border p-0',
+              'fc-close-button',
+              'rounded-fc-control wh-[32px] cursor-pointer text-fc-text bg-fc-control hover:bg-fc-control-hover text-[16px] f-center',
+              'transition-[top,opacity,background-color,border-color] duration-fc-fast',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fc-accent',
             )}
             onClick={() => {
               props.videoPlayer.emit(PlayerEvent.close)
             }}
           >
             <CloseOutlined />
-          </div>
+          </button>
         )}
       </div>
     )

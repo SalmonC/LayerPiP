@@ -1,7 +1,8 @@
 import {
   CheckOutlined,
+  FileAddOutlined,
+  LinkOutlined,
   LoadingOutlined,
-  TranslationOutlined,
 } from '@ant-design/icons'
 import Dropdown from '@root/components/Dropdown'
 import FileDropper from '@root/components/FileDropper'
@@ -10,7 +11,6 @@ import ActionButton from '@root/components/VideoPlayerV2/bottomPanel/ActionButto
 import vpContext from '@root/components/VideoPlayerV2/context'
 import { PlayerEvent } from '@root/core/event'
 import type SubtitleManager from '@root/core/SubtitleManager'
-import { translateMode } from '@root/core/SubtitleManager'
 import type { NetworkSubtitleProbe } from '@root/core/SubtitleManager/types'
 import { useOnce } from '@root/hook'
 import { t } from '@root/utils/i18n'
@@ -58,6 +58,9 @@ const SubtitleSelectionInner: FC<Props> = observer((props) => {
     >
       <ActionButton
         isUnActive={!subtitleManager.showSubtitle}
+        aria-label="字幕"
+        aria-pressed={subtitleManager.showSubtitle}
+        title="字幕"
         onClick={handleChangeVisible}
       >
         <Iconfont type="subtitle" size={18} />
@@ -73,32 +76,16 @@ const Menu: FC<Props> = observer((props) => {
   return (
     <div
       className={classNames(
-        'bg-[#000] rounded-[4px] p-[4px] text-[14px] text-white max-h-[calc(100vh-var(--area-height)-10px)] custom-scrollbar overflow-auto',
-        showNetworkLoader ? 'w-[310px]' : 'w-[170px]',
+        'fc-menu fc-subtitle-menu custom-scrollbar',
+        showNetworkLoader && 'is-expanded',
       )}
     >
-      <div className="f-i-center px-2 py-1 justify-between gap-2">
-        <TranslationOutlined className="text-[16px]" />
-        <select
-          value={subtitleManager.translateMode}
-          className="bg-[#333] flex-1"
-          onChange={(e) => {
-            runInAction(() => {
-              subtitleManager.translateMode = e.target.value as any
-            })
-          }}
-        >
-          {Object.entries(translateMode).map(([v, text]) => (
-            <option className="bg-[#333]" key={v} value={v}>
-              {text}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="relative h-[24px] px-[4px] rounded-[4px] f-center cursor-pointer hover:bg-gray-800 transition-colors">
-        {t('vp.addNewSubtitle')}
+      <p className="fc-menu-heading">字幕来源</p>
+      <label className="fc-menu-action">
+        <FileAddOutlined />
+        <span>{t('vp.addNewSubtitle')}</span>
         <input
-          className="absolute w-full left-0 top-0 h-full opacity-0 cursor-pointer"
+          className="fc-file-input"
           type="file"
           onChange={(e) => {
             const file = e.target.files?.[0]
@@ -107,30 +94,38 @@ const Menu: FC<Props> = observer((props) => {
           }}
           accept=".srt, .ass"
         />
-      </div>
-      <div
-        className="h-[24px] mt-1 px-[4px] rounded-[4px] text-center cursor-pointer hover:bg-gray-800 transition-colors leading-[24px]"
+      </label>
+      <button
+        type="button"
+        className="fc-menu-action"
+        aria-expanded={showNetworkLoader}
         onClick={() => setShowNetworkLoader((value) => !value)}
       >
-        {t('vp.addNetworkSubtitle')}
-      </div>
+        <LinkOutlined />
+        <span>{t('vp.addNetworkSubtitle')}</span>
+      </button>
       {showNetworkLoader && (
         <NetworkSubtitleLoader subtitleManager={subtitleManager} />
       )}
+      {!!subtitleManager.subtitleItems.length && (
+        <p className="fc-menu-heading">可用字幕</p>
+      )}
       {subtitleManager.subtitleItems.map((subtitleItem, i) => (
-        <div
+        <button
+          type="button"
           key={`${subtitleItem.value}-${i}`}
           className={classNames(
-            'h-[24px] mt-1 px-[4px] rounded-[4px] text-ellipsis text-center cursor-pointer hover:bg-gray-800 w-full transition-colors whitespace-nowrap overflow-hidden leading-[24px]',
-            activeLabel === subtitleItem.label && 'text-[var(--color-main)]',
+            'fc-menu-item',
+            activeLabel === subtitleItem.label && 'is-active',
           )}
           onClick={() => {
             subtitleManager.useSubtitle(subtitleItem.label)
             subtitleManager.showSubtitle = true
           }}
         >
+          {activeLabel === subtitleItem.label && <CheckOutlined />}
           {subtitleItem.label}
-        </div>
+        </button>
       ))}
     </div>
   )
@@ -195,24 +190,25 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
   })
 
   return (
-    <div className="mt-1 p-2 rounded-[4px] bg-[#161616] flex flex-col gap-2">
-      <input
-        className="w-full bg-[#292929] border border-[#fff4] rounded px-2 py-1"
-        disabled={loading}
-        value={url}
-        placeholder={t('vp.networkSubtitleUrlPlaceholder')}
-        onChange={(event) => {
-          requestId.current++
-          setUrl(event.target.value)
-          setProbe(undefined)
-          setError('')
-          setLoadedLabel('')
-        }}
-      />
-      <label className="f-i-center gap-2" title={t('vp.subtitleOffsetTips')}>
-        <span className="whitespace-nowrap">{t('vp.subtitleOffset')}</span>
+    <div className="fc-network-subtitle-form">
+      <label>
+        <span>视频或字幕链接</span>
         <input
-          className="min-w-0 flex-1 bg-[#292929] border border-[#fff4] rounded px-2 py-1"
+          disabled={loading}
+          value={url}
+          placeholder={t('vp.networkSubtitleUrlPlaceholder')}
+          onChange={(event) => {
+            requestId.current++
+            setUrl(event.target.value)
+            setProbe(undefined)
+            setError('')
+            setLoadedLabel('')
+          }}
+        />
+      </label>
+      <label title={t('vp.subtitleOffsetTips')}>
+        <span>{t('vp.subtitleOffset')}</span>
+        <input
           disabled={loading}
           type="number"
           step="0.1"
@@ -222,7 +218,7 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
       </label>
       {!probe && (
         <button
-          className="rounded bg-[#333] hover:bg-[#444] px-2 py-1 disabled:opacity-50"
+          className="fc-form-button"
           disabled={loading || !url.trim()}
           type="button"
           onClick={() => resolveUrl()}
@@ -236,21 +232,22 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
       )}
       {probe?.needsPartSelection && (
         <>
-          <label>{t('vp.selectSubtitlePart')}</label>
-          <select
-            className="w-full bg-[#292929] border border-[#fff4] rounded px-2 py-1"
-            disabled={loading}
-            value={selectedPart}
-            onChange={(event) => setSelectedPart(event.target.value)}
-          >
-            {probe.parts.map((part) => (
-              <option key={part.page} value={part.page}>
-                {part.label}
-              </option>
-            ))}
-          </select>
+          <label>
+            <span>{t('vp.selectSubtitlePart')}</span>
+            <select
+              disabled={loading}
+              value={selectedPart}
+              onChange={(event) => setSelectedPart(event.target.value)}
+            >
+              {probe.parts.map((part) => (
+                <option key={part.page} value={part.page}>
+                  {part.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
-            className="rounded bg-[#333] hover:bg-[#444] px-2 py-1 disabled:opacity-50"
+            className="fc-form-button"
             disabled={loading || !selectedPart}
             type="button"
             onClick={() => resolveUrl(Number(selectedPart))}
@@ -265,21 +262,22 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
       )}
       {!!probe?.tracks.length && (
         <>
-          <label>{t('vp.selectSubtitleTrack')}</label>
-          <select
-            className="w-full bg-[#292929] border border-[#fff4] rounded px-2 py-1"
-            disabled={loading}
-            value={selectedTrack}
-            onChange={(event) => setSelectedTrack(event.target.value)}
-          >
-            {probe.tracks.map((track) => (
-              <option key={track.value} value={track.value}>
-                {track.label}
-              </option>
-            ))}
-          </select>
+          <label>
+            <span>{t('vp.selectSubtitleTrack')}</span>
+            <select
+              disabled={loading}
+              value={selectedTrack}
+              onChange={(event) => setSelectedTrack(event.target.value)}
+            >
+              {probe.tracks.map((track) => (
+                <option key={track.value} value={track.value}>
+                  {track.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
-            className="rounded bg-[var(--color-main)] text-black px-2 py-1 disabled:opacity-50"
+            className="fc-form-button is-primary"
             disabled={loading || !selectedTrack}
             type="button"
             onClick={importTrack}
@@ -293,11 +291,15 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
         </>
       )}
       {loadedLabel && (
-        <p className="text-green-400 break-words">
+        <p className="fc-form-status is-success" role="status">
           <CheckOutlined /> {t('vp.networkSubtitleLoaded')}: {loadedLabel}
         </p>
       )}
-      {error && <p className="text-red-400 break-words">{error}</p>}
+      {error && (
+        <p className="fc-form-status is-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

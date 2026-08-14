@@ -1,0 +1,151 @@
+.video-player-v2 {
+  --fc-control: rgba(255, 255, 255, 0.06);
+  --fc-control-hover: var(--fc-surface-hover, rgba(255, 255, 255, 0.13));
+  --fc-control-pressed: rgba(255, 255, 255, 0.18);
+  --fc-focus-ring: var(--fc-accent, #5b87ff);
+  --fc-radius-control: var(--fc-radius-sm, 7px);
+  --fc-duration-fast: var(--fc-fast, 120ms);
+  --color-main: var(--fc-accent, #5b87ff);
+  --c-text-main: var(--fc-text, rgba(255, 255, 255, 0.96));
+  --box-shadow: var(--fc-shadow, 0 18px 48px rgba(0, 0, 0, 0.36));
+
+  color: var(--fc-text, rgba(255, 255, 255, 0.96));
+  background: var(--fc-bg, #0b0d10);
+  color-scheme: dark;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.video-player-v2 .video-action-area {
+  will-change: bottom;
+}
+
+.video-player-v2 .video-action-area:focus-within {
+  bottom: 0;
+}
+
+.video-player-v2 .video-action-area:focus-within .action-controls {
+  opacity: 1;
+}
+
+.video-player-v2 .actions {
+  border-top: 1px solid var(--fc-border, rgba(255, 255, 255, 0.12));
+  background: var(--fc-surface, rgba(20, 23, 28, 0.88));
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
+}
+
+.video-player-v2 .fc-action-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--fc-radius-control);
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  background: transparent;
+  appearance: none;
+  cursor: pointer;
+  transition:
+    color var(--fc-duration-fast) ease,
+    background-color var(--fc-duration-fast) ease,
+    border-color var(--fc-duration-fast) ease,
+    opacity var(--fc-duration-fast) ease,
+    transform 120ms ease;
+}
+
+.video-player-v2 .fc-action-button:hover {
+  border-color: var(--fc-border, rgba(255, 255, 255, 0.12));
+  background: var(--fc-control-hover);
+}
+
+.video-player-v2 .fc-action-button:active {
+  background: var(--fc-control-pressed);
+  transform: translateY(1px);
+}
+
+.video-player-v2 .fc-action-button:focus-visible {
+  outline: 2px solid var(--fc-focus-ring);
+  outline-offset: 2px;
+}
+
+.video-player-v2 .fc-close-button:focus-visible {
+  top: 16px;
+  opacity: 1;
+}
+
+.video-player-v2 .fc-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.video-player-v2 .fc-action-button.is-unactive {
+  color: var(--fc-text-muted, rgba(255, 255, 255, 0.66));
+  opacity: 0.64;
+}
+
+.video-player-v2 .fc-action-button > .anticon,
+.video-player-v2 .fc-action-button > svg {
+  display: block;
+  font-size: 17px;
+}
+
+.video-player-v2 .played-progress-bar,
+.video-player-v2 .played-progress-bar .bar-played,
+.video-player-v2 .played-progress-bar .rc-slider-handle,
+.video-player-v2 .bottom-progress {
+  transition-duration: var(--fc-duration-fast) !important;
+}
+
+.video-player-v2 .played-progress-bar {
+  transition-delay: 0ms !important;
+}
+
+.video-player-v2 .played-progress-bar .bar-played {
+  background: var(--fc-accent, #5b87ff) !important;
+}
+
+.video-player-v2 .played-progress-bar .bar-loaded > span {
+  background: rgba(91, 135, 255, 0.42) !important;
+  transition: width var(--fc-duration-fast) ease !important;
+}
+
+.video-player-v2 .volume .volume-progress {
+  border: 1px solid var(--fc-border, rgba(255, 255, 255, 0.12));
+  border-radius: 14px;
+  color: var(--fc-text, rgba(255, 255, 255, 0.96));
+  background: var(--fc-surface, rgba(20, 23, 28, 0.96));
+  transition: height var(--fc-duration-fast) ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-player-v2 .video-action-area,
+  .video-player-v2 .fc-action-button {
+    transition-duration: 0ms !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .video-player-v2 .fc-narrow-hide {
+    display: none !important;
+  }
+
+  .video-player-v2 .actions {
+    gap: 4px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+}
