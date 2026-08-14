@@ -22,7 +22,7 @@ const Dropdown: FC<Props> = (props) => {
   return (
     <Trigger
       popup={props.menuRender}
-      action={['hover', 'focus']}
+      action={['hover', 'click']}
       popupClassName={classNames(
         'transition-[opacity,scale]',
         'opacity-0 scale-y-0',
