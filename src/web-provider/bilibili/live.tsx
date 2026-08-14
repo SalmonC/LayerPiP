@@ -2,6 +2,7 @@ import DanmakuSender from '@root/core/danmaku/DanmakuSender'
 import { WebProvider } from '@root/core/WebProvider'
 import BilibiliLiveBarrageClient from '@root/danmaku/bilibili/liveBarrageClient'
 import { dq1Adv } from '@root/utils'
+import { parseBilibiliLiveRoomId } from './liveRoom'
 
 export default class BilibiliLiveProvider extends WebProvider {
   override isLive = true
@@ -23,11 +24,7 @@ export default class BilibiliLiveProvider extends WebProvider {
 
   danmakuWs?: BilibiliLiveBarrageClient
   connectDanmakuWs() {
-    const id = +(location.pathname.split('/').pop() ?? 0)
-
-    if (!id) {
-      throw Error(`不存在的id号 ${id}`)
-    }
+    const id = parseBilibiliLiveRoomId(location.pathname)
 
     this.danmakuWs = new BilibiliLiveBarrageClient(id)
 

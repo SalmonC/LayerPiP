@@ -8,12 +8,13 @@ import { autorun } from 'mobx'
 import { addEventListener } from '@root/utils'
 import { eventBus, PlayerEvent } from './event'
 
-const isInteractiveTarget = (target: EventTarget | null) => {
-  const element = target as HTMLElement | null
-  return Boolean(
-    element?.closest?.(
-      'input, textarea, select, button, [contenteditable]:not([contenteditable="false"])',
-    ),
+const INTERACTIVE_SELECTOR =
+  'input, textarea, select, button, [contenteditable]:not([contenteditable="false"])'
+
+const isInteractiveEvent = (event: KeyboardEvent) => {
+  const eventPath = event.composedPath?.() ?? [event.target]
+  return eventPath.some((target) =>
+    Boolean((target as HTMLElement | null)?.closest?.(INTERACTIVE_SELECTOR)),
   )
 }
 
@@ -139,7 +140,7 @@ export class KeyBinding {
   }
 
   protected handleKeyDown(e: KeyboardEvent) {
-    if (isInteractiveTarget(e.target)) return
+    if (isInteractiveEvent(e)) return
     e.stopPropagation()
 
     const { keyCode, shiftKey, ctrlKey, altKey } = e
@@ -204,7 +205,7 @@ export class KeyBinding {
     this.pressingKeyMap[mapKey]++
   }
   protected handleKeyUp(e: KeyboardEvent) {
-    if (isInteractiveTarget(e.target)) return
+    if (isInteractiveEvent(e)) return
     e.stopPropagation()
 
     const { keyCode, shiftKey, ctrlKey } = e

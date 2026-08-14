@@ -390,6 +390,7 @@ type SettingsTarget =
 
 let settingsRoot: Root | undefined
 let settingsHost: HTMLElement | undefined
+let settingsReturnFocus: HTMLElement | undefined
 let removeSettingsKeydown = () => {}
 
 const closeSettingPanel = () => {
@@ -399,6 +400,8 @@ const closeSettingPanel = () => {
   settingsRoot = undefined
   settingsHost?.remove()
   settingsHost = undefined
+  settingsReturnFocus?.focus()
+  settingsReturnFocus = undefined
 }
 
 const getSettingsTarget = (input?: SettingsTarget) => {
@@ -415,6 +418,11 @@ const openSettingPanel = (input?: SettingsTarget) => {
 
   const renderTarget = getSettingsTarget(input)
   const ownerDocument = renderTarget?.ownerDocument ?? document
+  const activeElement = ownerDocument.activeElement as HTMLElement | null
+  settingsReturnFocus =
+    activeElement && activeElement !== ownerDocument.body
+      ? activeElement
+      : undefined
   const host = ownerDocument.createElement('div')
   host.dataset.floatCaptionSettings = 'true'
   Object.assign(host.style, {
@@ -430,6 +438,9 @@ const openSettingPanel = (input?: SettingsTarget) => {
   stylesheet.href = Browser.runtime.getURL('/css.css')
   stylesheet.onload = () => {
     host.style.visibility = 'visible'
+    shadowRoot
+      .querySelector<HTMLButtonElement>('[aria-label="关闭设置"]')
+      ?.focus()
   }
   const mount = ownerDocument.createElement('div')
   shadowRoot.append(stylesheet, mount)

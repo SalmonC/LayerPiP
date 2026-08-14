@@ -232,6 +232,20 @@ test.describe('KeyBinding', () => {
     const eventsButton = await getTestEvents(page)
     expect(eventsButton).not.toContain('command_playToggle')
 
+    // Window listeners see a retargeted host for Shadow DOM controls. The
+    // composed path must still protect settings controls from player keys.
+    await page.locator('#test-shadow-select').focus()
+    await page.keyboard.press('ArrowRight')
+    await page.waitForTimeout(100)
+    const eventsShadowSelect = await getTestEvents(page)
+    expect(eventsShadowSelect).not.toContain('command_forward')
+
+    await page.locator('#test-shadow-button').focus()
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(100)
+    const eventsShadowButton = await getTestEvents(page)
+    expect(eventsShadowButton).not.toContain('command_playToggle')
+
     // Step 3: Test normal case again - Press Space outside input fields - should trigger event again
     // Blur current focus first, then focus body
     // ? 单纯的focus body没法清除掉上一个focus，不知道是bug还是什么

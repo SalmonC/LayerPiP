@@ -54,8 +54,22 @@ commandEvents.forEach((eventName) => {
 window.testReady = true
 console.log('KeyBinding test setup complete')
 
-// Add some helpful instructions
 const testContainer = dq1('#test-container')!
+const shadowHost = document.createElement('div')
+shadowHost.id = 'test-shadow-host'
+const shadowRoot = shadowHost.attachShadow({ mode: 'open' })
+shadowRoot.innerHTML = `
+  <select id="test-shadow-select">
+    <option>First shadow option</option>
+    <option>Second shadow option</option>
+  </select>
+  <button type="button" id="test-shadow-button">
+    Shadow button
+  </button>
+`
+testContainer.appendChild(shadowHost)
+
+// Add some helpful instructions
 const instructions = document.createElement('div')
 instructions.className = 'test-section'
 instructions.innerHTML = `
