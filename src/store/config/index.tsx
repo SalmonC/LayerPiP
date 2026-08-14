@@ -30,7 +30,9 @@ import isPluginEnv from '@root/shared/isPluginEnv'
 import { isUndefined } from 'lodash-es'
 import isDev from '@root/shared/isDev'
 import Browser from 'webextension-polyfill'
+import { createRoot, Root } from 'react-dom/client'
 import { ATTR_DISABLE_INJECT_PIP } from '@root/shared/config'
+import FloatCaptionSettings from '@root/components/FloatCaptionSettings'
 import config_floatButton from './floatButton'
 import config_shortcut from './shortcut'
 import config_subtitle from './subtitle'
@@ -38,6 +40,10 @@ import config_specialWebsites from './specialWebsites'
 import config_danmaku from './danmaku'
 import { docPIPConfig } from './docPIP'
 import config_features from './features'
+import {
+  FLOAT_CAPTION_SAFE_DEFAULTS,
+  normalizeFloatCaptionConfig,
+} from './floatCaption'
 
 if (isDev) {
   configure({
@@ -303,8 +309,6 @@ export const baseConfigMap = {
 
 const {
   configStore,
-  openSettingPanel,
-  closeSettingPanel,
   observe,
   updateConfig: _updateConfig,
   saveConfig,
@@ -314,6 +318,8 @@ const {
   mobx: { makeAutoObservable, observer, observe: mobxObserve },
   i18n: getIsZh() ? zh : en,
   async onSave(newConfig) {
+    newConfig = normalizeFloatCaptionConfig(newConfig)
+
     if (newConfig.language) {
       await setBrowserLocalStorage(LOCALE, newConfig.language)
       location.reload()
@@ -357,7 +363,10 @@ const {
       DM_MINI_PLAYER_CONFIG,
     )) as any
 
-    const loadedConfig = { ...config, ...(savedConfig ?? {}) } as typeof config
+    const loadedConfig = normalizeFloatCaptionConfig({
+      ...config,
+      ...(savedConfig ?? {}),
+    }) as typeof config
 
     // 去除旧config
     if (typeof loadedConfig.movePIPInOpen === 'boolean') {
@@ -375,6 +384,83 @@ const {
 })
 let oldConfig: Partial<typeof configStore>
 
+type SettingsTarget =
+  | HTMLElement
+  | { renderTarget?: HTMLElement; category?: string }
+
+let settingsRoot: Root | undefined
+let settingsHost: HTMLElement | undefined
+let removeSettingsKeydown = () => {}
+
+const closeSettingPanel = () => {
+  removeSettingsKeydown()
+  removeSettingsKeydown = () => {}
+  settingsRoot?.unmount()
+  settingsRoot = undefined
+  settingsHost?.remove()
+  settingsHost = undefined
+}
+
+const getSettingsTarget = (input?: SettingsTarget) => {
+  if (!input) return undefined
+  if ('nodeType' in input && input.nodeType === 1) {
+    return input as HTMLElement
+  }
+  return input.renderTarget
+}
+
+const openSettingPanel = (input?: SettingsTarget) => {
+  closeSettingPanel()
+
+  const renderTarget = getSettingsTarget(input)
+  const ownerDocument = renderTarget?.ownerDocument ?? document
+  const host = ownerDocument.createElement('div')
+  host.dataset.floatCaptionSettings = 'true'
+  Object.assign(host.style, {
+    position: renderTarget ? 'absolute' : 'fixed',
+    inset: '0',
+    zIndex: '2147483647',
+    visibility: 'hidden',
+  })
+
+  const shadowRoot = host.attachShadow({ mode: 'open' })
+  const stylesheet = ownerDocument.createElement('link')
+  stylesheet.rel = 'stylesheet'
+  stylesheet.href = Browser.runtime.getURL('/css.css')
+  stylesheet.onload = () => {
+    host.style.visibility = 'visible'
+  }
+  const mount = ownerDocument.createElement('div')
+  shadowRoot.append(stylesheet, mount)
+  ;(renderTarget ?? ownerDocument.body).appendChild(host)
+
+  settingsHost = host
+  settingsRoot = createRoot(mount)
+  settingsRoot.render(
+    <FloatCaptionSettings
+      values={configStore}
+      onPatch={(patch) => {
+        _updateConfig(patch)
+        saveConfig()
+      }}
+      onReset={() => {
+        _updateConfig(FLOAT_CAPTION_SAFE_DEFAULTS)
+        saveConfig()
+      }}
+      onClose={closeSettingPanel}
+    />,
+  )
+
+  const onKeydown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return
+    event.stopPropagation()
+    closeSettingPanel()
+  }
+  ownerDocument.addEventListener('keydown', onKeydown, true)
+  removeSettingsKeydown = () =>
+    ownerDocument.removeEventListener('keydown', onKeydown, true)
+}
+
 const updateConfig = async (config?: Partial<typeof configStore>) => {
   config ??= await getBrowserSyncStorage(DM_MINI_PLAYER_CONFIG)
   if (!config) return
@@ -384,7 +470,7 @@ const updateConfig = async (config?: Partial<typeof configStore>) => {
   } else {
     document.documentElement.removeAttribute(ATTR_DISABLE_INJECT_PIP)
   }
-  _updateConfig(config)
+  _updateConfig(normalizeFloatCaptionConfig(config))
 }
 
 // 同步多个tab的config

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">FloatCaption</title>
+  <desc id="desc">A floating video window with two caption lines.</desc>
+  <defs>
+    <linearGradient id="brand" x1="76" y1="48" x2="436" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4C8DFF"/>
+      <stop offset="1" stop-color="#7657E8"/>
+    </linearGradient>
+  </defs>
+  <rect x="28" y="28" width="456" height="456" rx="116" fill="url(#brand)"/>
+  <rect x="116" y="126" width="280" height="214" rx="42" fill="none" stroke="#FFFFFF" stroke-width="30"/>
+  <path d="M276 126h78a42 42 0 0 1 42 42v54" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+  <path d="M158 266h196M190 306h132" fill="none" stroke="#FFFFFF" stroke-width="24" stroke-linecap="round"/>
+  <path d="m222 175 78 45-78 45z" fill="#FFFFFF"/>
+</svg>

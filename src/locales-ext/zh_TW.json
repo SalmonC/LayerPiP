@@ -1,4 +1,7 @@
 {
+  "appNameFloatCaption": {
+    "message": "浮幕 FloatCaption"
+  },
   "appNameNetworkSubtitle": {
     "message": "彈幕畫中畫播放器（網路字幕版）"
   },

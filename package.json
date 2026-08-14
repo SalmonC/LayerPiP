@@ -1,8 +1,8 @@
 {
-  "name": "dmMiniPlayer",
-  "version": "0.6.60",
-  "license": "MIT",
-  "author": "apades",
+  "name": "floatcaption",
+  "version": "0.7.0",
+  "license": "CC-BY-NC-4.0",
+  "author": "FloatCaption contributors; based on apades/dmMiniPlayer",
   "type": "module",
   "private": true,
   "engines": {

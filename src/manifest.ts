@@ -3,13 +3,13 @@ import packageJson from '../package.json'
 const version = packageJson.version
 
 export const manifest: chrome.runtime.ManifestV3 = {
-  name: '__MSG_appNameNetworkSubtitle__',
+  name: '__MSG_appNameFloatCaption__',
   description: '__MSG_appDesc__',
-  author: 'apades' as any,
+  author: 'FloatCaption contributors; based on apades/dmMiniPlayer' as any,
   manifest_version: 3,
   homepage_url: 'https://github.com/apades/dmMiniPlayer',
   version,
-  version_name: `${version}-network-subtitle.3`,
+  version_name: `FloatCaption ${version}`,
   icons: {
     '16': 'assets/icon16.png',
     '32': 'assets/icon32.png',
@@ -100,20 +100,6 @@ export const manifest: chrome.runtime.ManifestV3 = {
         mac: 'Command+Shift+Space',
       },
       description: '__MSG_playOrPause__',
-    },
-    hide: {
-      suggested_key: {
-        default: 'Alt+Shift+H',
-        windows: 'Alt+Shift+H',
-        mac: 'Command+Shift+H',
-      },
-      description: '__MSG_hide__',
-    },
-    playbackRate: {
-      description: '__MSG_playbackRate__',
-    },
-    quickHideToggle: {
-      description: '__MSG_quickHideToggle__',
     },
   },
 }

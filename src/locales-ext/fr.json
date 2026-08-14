@@ -1,4 +1,7 @@
 {
+  "appNameFloatCaption": {
+    "message": "FloatCaption"
+  },
   "appNameNetworkSubtitle": {
     "message": "Danmaku mini player (Network Subtitle Build)"
   },

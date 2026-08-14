@@ -1,4 +1,7 @@
 {
+  "appNameFloatCaption": {
+    "message": "FloatCaption"
+  },
   "appNameNetworkSubtitle": {
     "message": "Danmaku mini player (Network Subtitle Build)"
   },
@@ -6,7 +9,7 @@
     "message": "Danmaku mini player - picture-in-picture video player"
   },
   "appDesc": {
-    "message": "Enhanced picture in picture video player, support all video controls, subtitle, danmaku, change video in PIP sidebar, etc."
+    "message": "A focused picture-in-picture player with danmaku and local or network subtitles."
   },
   "back": {
     "message": "backward"
