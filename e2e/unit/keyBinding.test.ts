@@ -216,6 +216,22 @@ test.describe('KeyBinding', () => {
     const events4 = await getTestEvents(page)
     expect(events4).not.toContain('command_playToggle')
 
+    // Select controls must retain arrow-key navigation without seeking video.
+    await page.focus('#test-select')
+    await page.keyboard.press('ArrowRight')
+    await page.waitForTimeout(100)
+
+    const eventsSelect = await getTestEvents(page)
+    expect(eventsSelect).not.toContain('command_forward')
+
+    // Semantic controls must retain Space activation without toggling video.
+    await page.focus('#test-button')
+    await page.keyboard.press('Space')
+    await page.waitForTimeout(100)
+
+    const eventsButton = await getTestEvents(page)
+    expect(eventsButton).not.toContain('command_playToggle')
+
     // Step 3: Test normal case again - Press Space outside input fields - should trigger event again
     // Blur current focus first, then focus body
     // ? 单纯的focus body没法清除掉上一个focus，不知道是bug还是什么

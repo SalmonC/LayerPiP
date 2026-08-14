@@ -8,6 +8,15 @@ import { autorun } from 'mobx'
 import { addEventListener } from '@root/utils'
 import { eventBus, PlayerEvent } from './event'
 
+const isInteractiveTarget = (target: EventTarget | null) => {
+  const element = target as HTMLElement | null
+  return Boolean(
+    element?.closest?.(
+      'input, textarea, select, button, [contenteditable]:not([contenteditable="false"])',
+    ),
+  )
+}
+
 // const getShortcutConfigs = onceCall(() =>
 //   Object.fromEntries(
 //     Object.entries(configStore)
@@ -130,13 +139,7 @@ export class KeyBinding {
   }
 
   protected handleKeyDown(e: KeyboardEvent) {
-    const tar = e.target as HTMLElement
-    if (
-      tar.tagName === 'TEXTAREA' ||
-      tar.tagName === 'INPUT' ||
-      tar.contentEditable === 'true'
-    )
-      return
+    if (isInteractiveTarget(e.target)) return
     e.stopPropagation()
 
     const { keyCode, shiftKey, ctrlKey, altKey } = e
@@ -201,13 +204,7 @@ export class KeyBinding {
     this.pressingKeyMap[mapKey]++
   }
   protected handleKeyUp(e: KeyboardEvent) {
-    const tar = e.target as HTMLElement
-    if (
-      tar.tagName === 'TEXTAREA' ||
-      tar.tagName === 'INPUT' ||
-      tar.contentEditable === 'true'
-    )
-      return
+    if (isInteractiveTarget(e.target)) return
     e.stopPropagation()
 
     const { keyCode, shiftKey, ctrlKey } = e
