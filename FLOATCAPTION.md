@@ -14,7 +14,7 @@ FloatCaption 是基于 `apades/dmMiniPlayer v0.6.60` 的非商业自用分支，
 
 ## 与旧版共存
 
-旧版网络字幕构建保留在原工作树和 Git 标签 `custom-v0.6.60-network-subtitle.3`。FloatCaption 使用独立目录、扩展名称、0.7.0 版本及新图标，因此两者可以同时保留在扩展列表中。使用时只启用其中一个，避免两个内容脚本同时接管同一视频；需要回退时停用 FloatCaption，再启用旧版即可。
+旧版网络字幕构建保留在原工作树和 Git 标签 `custom-v0.6.60-network-subtitle.3`。FloatCaption 使用独立目录、扩展名称、0.7.1 版本及新图标，因此两者可以同时保留在扩展列表中。使用时只启用其中一个，避免两个内容脚本同时接管同一视频；需要回退时停用 FloatCaption，再启用旧版即可。
 
 ## 安装
 

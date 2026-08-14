@@ -21,10 +21,6 @@
     sans-serif;
 }
 
-.video-player-v2 .video-action-area {
-  will-change: bottom;
-}
-
 .video-player-v2 .video-action-area:focus-within {
   bottom: 0;
 }
@@ -35,10 +31,19 @@
 
 .video-player-v2 .actions {
   border-top: 1px solid var(--fc-border, rgba(255, 255, 255, 0.12));
-  background: var(--fc-surface, rgba(20, 23, 28, 0.88));
+  background: rgba(14, 16, 20, 0.96);
   box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.22);
-  -webkit-backdrop-filter: blur(18px) saturate(135%);
-  backdrop-filter: blur(18px) saturate(135%);
+}
+
+/*
+ * macOS Edge may repeatedly invalidate the native Document PiP title bar when
+ * a backdrop-filter samples moving danmaku/video frames. Keep every surface
+ * inside the live player compositor opaque enough to avoid that path.
+ */
+.video-player-v2 .fc-menu {
+  background: rgba(20, 23, 28, 0.98);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .video-player-v2 .fc-action-button {
