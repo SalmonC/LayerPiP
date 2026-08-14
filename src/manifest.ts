@@ -3,12 +3,13 @@ import packageJson from '../package.json'
 const version = packageJson.version
 
 export const manifest: chrome.runtime.ManifestV3 = {
-  name: '__MSG_appName__',
+  name: '__MSG_appNameNetworkSubtitle__',
   description: '__MSG_appDesc__',
   author: 'apades' as any,
   manifest_version: 3,
   homepage_url: 'https://github.com/apades/dmMiniPlayer',
   version,
+  version_name: `${version}-network-subtitle.3`,
   icons: {
     '16': 'assets/icon16.png',
     '32': 'assets/icon32.png',

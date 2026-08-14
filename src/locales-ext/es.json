@@ -1,4 +1,7 @@
 {
+  "appNameNetworkSubtitle": {
+    "message": "Danmaku mini player (Network Subtitle Build)"
+  },
   "appName": {
     "message": "Reproductor de imagen en imagen Danmaku"
   },

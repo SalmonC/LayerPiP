@@ -1,7 +1,12 @@
 import SubtitleManager from '@root/core/SubtitleManager'
-import type { SubtitleRow } from '@root/core/SubtitleManager/types'
+import type {
+  NetworkSubtitleProbe,
+  SubtitleRow,
+} from '@root/core/SubtitleManager/types'
+import bgFetch from '@root/utils/bgFetch'
 import { runInAction } from 'mobx'
 import { getSubtitle, getSubtitles } from '../utils'
+import { probeBilibiliNetworkSubtitle } from './networkSubtitle'
 
 export default class BilibiliSubtitleManager extends SubtitleManager {
   override async onInit() {
@@ -21,5 +26,17 @@ export default class BilibiliSubtitleManager extends SubtitleManager {
         text: d.content,
       }
     })
+  }
+
+  override async probeNetworkSubtitle(
+    input: string,
+    selectedPart?: number,
+  ): Promise<NetworkSubtitleProbe> {
+    const probe = await probeBilibiliNetworkSubtitle(
+      input,
+      selectedPart,
+      (url, options) => bgFetch(url, { ...options, type: 'json' }),
+    )
+    return probe ?? super.probeNetworkSubtitle(input, selectedPart)
   }
 }

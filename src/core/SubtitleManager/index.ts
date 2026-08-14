@@ -5,10 +5,22 @@ import { ERROR_MSG } from '@root/shared/errorMsg'
 import toast from 'react-hot-toast'
 import { getNowLang, t } from '@root/utils/i18n'
 import { googleTranslate } from '@root/utils/translate'
+import bgFetch from '@root/utils/bgFetch'
 import { PlayerComponent } from '../types'
+import {
+  applyNetworkSubtitleOffset,
+  createDirectSubtitleProbe,
+  parseNetworkSubtitleContent,
+} from './networkSubtitle'
 import assParser from './subtitleParser/ass'
 import srtParser from './subtitleParser/srt'
-import type { SubtitleItem, SubtitleManagerEvents, SubtitleRow } from './types'
+import type {
+  NetworkSubtitleProbe,
+  NetworkSubtitleTrack,
+  SubtitleItem,
+  SubtitleManagerEvents,
+  SubtitleRow,
+} from './types'
 
 export const translateMode = {
   double: t('subtitleTranslate.double'),
@@ -28,6 +40,8 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   activeSubtitleLabel: string = ''
   showSubtitle = false
   translateMode: keyof typeof translateMode = 'none'
+  private customSubtitleId = 0
+  private lifecycleGeneration = 0
 
   nowSubtitleItemsLabel: string = ''
 
@@ -123,6 +137,46 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     this.subtitleItems.push({ label, value: label })
     this.subtitleCache.set(cacheKey, { rows })
     this.useSubtitle(label)
+  }
+
+  async probeNetworkSubtitle(
+    input: string,
+    _selectedPart?: number,
+  ): Promise<NetworkSubtitleProbe> {
+    return createDirectSubtitleProbe(input)
+  }
+
+  async addNetworkSubtitle(track: NetworkSubtitleTrack, offset = 0) {
+    const generation = this.lifecycleGeneration
+    const content = await bgFetch(track.value, { type: 'text' })
+    if (generation !== this.lifecycleGeneration) {
+      throw new Error('页面已切换，请重新加载网络字幕')
+    }
+    if (typeof content !== 'string') {
+      throw new Error('网络字幕返回了无法识别的内容')
+    }
+    const rows = applyNetworkSubtitleOffset(
+      parseNetworkSubtitleContent(content, track.value),
+      offset,
+    )
+    if (!rows.length) {
+      throw new Error('应用时间偏移后没有可显示的字幕')
+    }
+    return this.addCustomSubtitleRows(track.label, rows)
+  }
+
+  protected addCustomSubtitleRows(label: string, rows: SubtitleRow[]) {
+    let uniqueLabel = label
+    let suffix = 2
+    while (this.subtitleItems.some((item) => item.label === uniqueLabel)) {
+      uniqueLabel = `${label} (${suffix++})`
+    }
+
+    const value = `network-${Date.now()}-${++this.customSubtitleId}`
+    this.subtitleItems.push({ label: uniqueLabel, value })
+    this.subtitleCache.set(`custom-${value}`, { rows })
+    this.useSubtitle(uniqueLabel)
+    return uniqueLabel
   }
 
   protected listenVideoEvents(video = this.video) {
@@ -286,6 +340,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   }
 
   reset() {
+    this.lifecycleGeneration++
     this.subtitleItems.length = 0
     this.subtitleCache.clear()
     this.resetSubtitleState()

@@ -1,4 +1,7 @@
 {
+  "appNameNetworkSubtitle": {
+    "message": "弹幕画中画播放器（网络字幕版）"
+  },
   "appName": {
     "message": "弹幕画中画播放器"
   },
