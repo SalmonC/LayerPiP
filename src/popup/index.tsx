@@ -48,7 +48,7 @@ const Page_popup: FC = () => {
       currentWindow: true,
     })
     if (!tab?.id) return
-    await sendMessage(WebextEvent.openSetting, null, {
+    await sendMessage(WebextEvent.openSetting, undefined, {
       tabId: tab.id,
       context: 'content-script',
     })

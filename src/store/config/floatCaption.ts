@@ -29,7 +29,7 @@ export const FLOAT_CAPTION_CORE_CONFIG = {
   vpBufferTest: false,
   FPS_limitOffsetAccurate: false,
   dragArea_show: false,
-  disable_sites: [],
+  disable_sites: [] as string[],
 } as const
 
 export const FLOAT_CAPTION_VISIBLE_DEFAULTS = {

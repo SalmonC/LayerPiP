@@ -403,10 +403,11 @@ const closeSettingPanel = () => {
 
 const getSettingsTarget = (input?: SettingsTarget) => {
   if (!input) return undefined
-  if ('nodeType' in input && input.nodeType === 1) {
-    return input as HTMLElement
+  const elementInput = input as HTMLElement
+  if (elementInput.nodeType === 1 && elementInput.ownerDocument) {
+    return elementInput
   }
-  return input.renderTarget
+  return (input as { renderTarget?: HTMLElement }).renderTarget
 }
 
 const openSettingPanel = (input?: SettingsTarget) => {
@@ -444,7 +445,9 @@ const openSettingPanel = (input?: SettingsTarget) => {
         saveConfig()
       }}
       onReset={() => {
-        _updateConfig(FLOAT_CAPTION_SAFE_DEFAULTS)
+        _updateConfig(
+          FLOAT_CAPTION_SAFE_DEFAULTS as unknown as Partial<typeof configStore>,
+        )
         saveConfig()
       }}
       onClose={closeSettingPanel}
