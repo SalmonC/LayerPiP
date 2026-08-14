@@ -1,4 +1,5 @@
-:root {
+:root,
+:host {
   --fc-bg: #0b0d10;
   --fc-surface: rgba(20, 23, 28, 0.94);
   --fc-surface-hover: rgba(255, 255, 255, 0.1);
