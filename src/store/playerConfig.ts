@@ -18,7 +18,7 @@ const playerConfig: PlayerConfig = {
   clear() {
     const ignores = ['clear']
     for (const key of objectKeys(playerConfig)) {
-      if (ignores.includes(key)) return
+      if (ignores.includes(key)) continue
       delete playerConfig[key]
     }
   },
