@@ -50,7 +50,7 @@
 - `src/core/WebProvider/CanvasPIPWebProvider.ts`
 - `src/core/WebProvider/DocPIPWebProvider.ts`
 - `src/core/SubtitleManager/`
-- `src/components/FloatCaptionSettings.tsx`
+- `src/components/LayerPipSettings.tsx`
 
 ## Visual/Browser Findings
 

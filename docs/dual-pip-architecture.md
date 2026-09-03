@@ -1,8 +1,8 @@
-# FloatCaption 双 PiP 架构与实施方案
+# LayerPiP 双 PiP 架构与实施方案
 
 ## 1. 目标
 
-FloatCaption 提供两个可在设置中切换的小窗后端，共享同一套字幕、弹幕和播放配置。
+LayerPiP 提供两个可在设置中切换的小窗后端，共享同一套字幕、弹幕和播放配置。
 
 1. **增强小窗** (`document`)：使用 Document Picture-in-Picture，保留完整 HTML 操作栏、字幕菜单、弹幕设置和快捷键。
 2. **Edge 原生小窗** (`native-composite`)：将视频、弹幕和字幕合成到 Canvas，通过传统 `HTMLVideoElement.requestPictureInPicture()` 交给 Edge 原生窗口。
@@ -11,10 +11,10 @@ FloatCaption 提供两个可在设置中切换的小窗后端，共享同一套�
 
 ## 2. 默认值与迁移
 
-- 新旧用户均默认 `document`，原生模式在真实 Edge 验收前不自动启用。
+- 所有用户均默认 `document`，原生模式在真实 Edge 验收前不自动启用。
 - 新增枚举 `pipMode: 'document' | 'native-composite'`。
-- 旧 `useDocPIP === false` 映射为 `native-composite`；其他旧配置映射为 `document`。
-- 迁移后后端选择只读 `pipMode`，`useDocPIP` 不再被隐藏安全默认值强制覆盖。
+- 不读取或迁移稳定旧插件的配置；两个扩展拥有独立身份与存储。
+- LayerPiP 内部只有 `pipMode === 'native-composite'` 且存在显式 `nativeCompositeOptIn` 标记时才启用原生模式；其他情况全部回落到增强小窗。
 
 ## 3. 设置信息架构
 

@@ -1,11 +1,11 @@
 ;(function () {
   'use strict'
   ;(async () => {
-    if (document.documentElement.getAttribute('dm-disable')) return
+    if (document.documentElement.getAttribute('layerpip-disable')) return
 
-    await chrome.storage.local.get('LOCALE').then((res) => {
-      if (!res['LOCALE']) return
-      window.__LOCALE = res['LOCALE']
+    await chrome.storage.local.get('LAYERPIP_LOCALE_V1').then((res) => {
+      if (!res['LAYERPIP_LOCALE_V1']) return
+      window.__LOCALE = res['LAYERPIP_LOCALE_V1']
     })
     await Promise.all([
       import('./react-refresh.js'),

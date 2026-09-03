@@ -10,9 +10,9 @@ export const DEFAULT_FETCH_INJECT_SITE = [
   '/https:\\/\\/live\\.bilibili\\.com\\/.*/',
 ]
 
-export const ATTR_DISABLE = 'dm-disable'
-export const ATTR_EVENT_INJECT_SITES = 'dm-event-inject-sites'
-export const ATTR_URL = 'dm-url'
-export const VIDEO_ID_ATTR = 'data-dm-vid'
-export const ATTR_DISABLE_INJECT_PIP = 'dm-disable-inject-pip'
-export const ATTR_LOADED = 'dm-loaded'
+export const ATTR_DISABLE = 'layerpip-disable'
+export const ATTR_EVENT_INJECT_SITES = 'layerpip-event-inject-sites'
+export const ATTR_URL = 'layerpip-url'
+export const VIDEO_ID_ATTR = 'data-layerpip-video-id'
+export const ATTR_DISABLE_INJECT_PIP = 'layerpip-disable-inject-pip'
+export const ATTR_LOADED = 'layerpip-loaded'

@@ -79,7 +79,7 @@ const shortcuts = [
   ['长按加速', '长按 →'],
 ]
 
-const FloatCaptionSettings: FC<Props> = observer(
+const LayerPipSettings: FC<Props> = observer(
   ({ values, onPatch, onReset, onClose }) => {
     const [tab, setTab] = useState<Tab>('general')
     const closeRef = useRef<HTMLButtonElement>(null)
@@ -100,7 +100,7 @@ const FloatCaptionSettings: FC<Props> = observer(
           <header className="fc-settings-header">
             <div>
               <span className="fc-eyebrow">FLOATCAPTION</span>
-              <h2 id="fc-settings-title">浮幕设置</h2>
+              <h2 id="fc-settings-title">叠映设置</h2>
             </div>
             <button
               ref={closeRef}
@@ -173,7 +173,7 @@ const FloatCaptionSettings: FC<Props> = observer(
                 </fieldset>
                 <SwitchField
                   label="显示网页浮动入口"
-                  description="在检测到视频时显示浮幕按钮"
+                  description="在检测到视频时显示叠映按钮"
                   checked={values.floatButtonVisible}
                   onChange={(value) => onPatch({ floatButtonVisible: value })}
                 />
@@ -338,4 +338,4 @@ const FloatCaptionSettings: FC<Props> = observer(
   },
 )
 
-export default FloatCaptionSettings
+export default LayerPipSettings

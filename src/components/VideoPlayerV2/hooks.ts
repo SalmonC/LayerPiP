@@ -161,12 +161,15 @@ export function useKeydown(
       const detail = e.detail
       handleKeyDown(detail as any)
     }
-    keydownWindow.addEventListener('dm-keydown' as any, handleKeyDownCustom)
+    keydownWindow.addEventListener(
+      'layerpip-player-keydown' as any,
+      handleKeyDownCustom,
+    )
 
     return () => {
       keydownWindow.removeEventListener('keydown', handleKeyDown)
       keydownWindow.removeEventListener(
-        'dm-keydown' as any,
+        'layerpip-player-keydown' as any,
         handleKeyDownCustom,
       )
     }

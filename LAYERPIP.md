@@ -1,20 +1,21 @@
-# 浮幕 FloatCaption
+# 叠映 LayerPiP
 
-FloatCaption 是基于 `apades/dmMiniPlayer v0.6.60` 的非商业自用分支，专注于 macOS Edge 中的学习视频小窗。
+LayerPiP 是一个与旧插件彻底隔离的新项目，基于 `apades/dmMiniPlayer v0.6.60` 的非商业自用分支开发，专注于 macOS Edge 中的学习视频小窗。
 
 ## 核心范围
 
 - Bilibili 普通视频、分 P、番剧页面与直播
 - 通用 HTML5 视频后备支持
-- Document Picture-in-Picture，固定使用原版 `replaceVideoEl` 行为
+- 增强小窗：Document Picture-in-Picture，保留完整交互控件
+- 原生小窗：把视频、弹幕和字幕合成后交给 Edge 原生画中画
 - Bilibili 原生弹幕、显示开关与时间偏移
 - 原生字幕、本地 SRT/ASS，以及 Bilibili 视频链接或直接字幕链接
 - 来源链接含 `p` 时严格匹配该分 P；不含 `p` 时必须手动选择
 - 播放、快进快退、音量、倍速、上一/下一 P、字幕与弹幕快捷键
 
-## 与旧版共存
+## 与稳定旧插件共存
 
-旧版网络字幕构建保留在原工作树和 Git 标签 `custom-v0.6.60-network-subtitle.3`。FloatCaption 使用独立目录、扩展名称、0.7.1 版本及新图标，因此两者可以同时保留在扩展列表中。使用时只启用其中一个，避免两个内容脚本同时接管同一视频；需要回退时停用 FloatCaption，再启用旧版即可。
+稳定旧插件保留在相邻的 `FloatCaption` 工作树和 Git 标签 `custom-v0.7.1`。LayerPiP 使用独立工作树、固定扩展 ID、配置命名空间、版本和图标。在运行时命名空间隔离完成并通过验收前，不要在同一个 Edge 配置文件中同时启用两个插件。
 
 ## 安装
 
@@ -22,6 +23,7 @@ FloatCaption 是基于 `apades/dmMiniPlayer v0.6.60` 的非商业自用分支，
 2. Edge 打开 `edge://extensions`，启用“开发人员模式”。
 3. 选择“加载解压缩的扩展”，在文件选择器中按 `Command + Shift + G`。
 4. 输入本项目 `dist` 的完整路径并确认。
+5. 扩展列表中应显示“叠映 LayerPiP”，固定 ID 为 `jnonlboihmjeahenhlbkjdijicakfnjj`。
 5. 保留旧扩展时，请确认两个扩展显示不同的名称和图标，并停用当前不用的版本。
 
 ## 已主动精简

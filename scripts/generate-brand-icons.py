@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate deterministic FloatCaption PNG extension icons from the brand geometry."""
+"""Generate deterministic LayerPiP PNG extension icons from the brand geometry."""
 
 from pathlib import Path
 from PIL import Image, ImageDraw
@@ -13,8 +13,8 @@ CANVAS = 1024
 def brand_icon() -> Image.Image:
     image = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     pixels = image.load()
-    top = (76, 141, 255)
-    bottom = (118, 87, 232)
+    top = (15, 118, 110)
+    bottom = (8, 47, 73)
     for y in range(CANVAS):
         ratio = y / (CANVAS - 1)
         color = tuple(round(a + (b - a) * ratio) for a, b in zip(top, bottom))
@@ -25,12 +25,16 @@ def brand_icon() -> Image.Image:
     ImageDraw.Draw(mask).rounded_rectangle((56, 56, 968, 968), radius=232, fill=255)
     image.putalpha(mask)
 
-    draw = ImageDraw.Draw(image)
-    white = (255, 255, 255, 255)
-    draw.rounded_rectangle((232, 252, 792, 680), radius=84, outline=white, width=60)
-    draw.polygon(((444, 350), (600, 440), (444, 530)), fill=white)
-    draw.line((316, 532, 708, 532), fill=white, width=48)
-    draw.line((380, 612, 644, 612), fill=white, width=48)
+    draw = ImageDraw.Draw(image, "RGBA")
+    mint = (45, 212, 191, 164)
+    white = (248, 250, 252, 255)
+    teal = (15, 118, 110, 255)
+    pale = (153, 246, 228, 255)
+    draw.rounded_rectangle((208, 232, 708, 612), radius=84, fill=mint)
+    draw.rounded_rectangle((316, 340, 816, 720), radius=84, fill=white)
+    draw.polygon(((506, 436), (690, 548), (506, 660)), fill=teal)
+    draw.line((428, 780, 596, 780), fill=pale, width=44)
+    draw.line((650, 780, 686, 780), fill=pale, width=44)
     return image
 
 

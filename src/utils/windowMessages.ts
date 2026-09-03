@@ -6,7 +6,7 @@ import mitt from 'mitt'
 import Events2 from './Events2'
 import { dq, isUndefined } from '.'
 
-const ID = 'dmMiniPlayer'
+const ID = 'layerpip'
 
 export function postMessageToTop<
   T extends PostMessageEvent,

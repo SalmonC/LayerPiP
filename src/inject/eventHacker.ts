@@ -33,21 +33,21 @@ function main() {
       state: any,
     ) {
       const getEventMap = () => {
-        if (isWindow) return window.eventMap
-        if (isDocument) return (document as any).eventMap
-        return this.eventMap
+        if (isWindow) return window.__layerPipEventMap
+        if (isDocument) return (document as any).__layerPipEventMap
+        return this.__layerPipEventMap
       }
 
       try {
         if (isWindow) {
-          window.eventMap = getEventMap() || {}
-          window.eventMap[key] = getEventMap()[key] || []
+          window.__layerPipEventMap = getEventMap() || {}
+          window.__layerPipEventMap[key] = getEventMap()[key] || []
         } else if (isDocument) {
-          ;(document as any).eventMap = getEventMap() || {}
-          ;(document as any).eventMap[key] = getEventMap()[key] || []
+          ;(document as any).__layerPipEventMap = getEventMap() || {}
+          ;(document as any).__layerPipEventMap[key] = getEventMap()[key] || []
         } else {
-          this.eventMap = getEventMap() || {}
-          this.eventMap[key] = getEventMap()[key] || []
+          this.__layerPipEventMap = getEventMap() || {}
+          this.__layerPipEventMap[key] = getEventMap()[key] || []
         }
       } catch (error) {
         console.error(error, tar)
@@ -98,9 +98,9 @@ function main() {
       state: any,
     ) {
       const getEventMap = () => {
-        if (isWindow) return window.eventMap
-        if (isDocument) return (document as any).eventMap
-        return this.eventMap
+        if (isWindow) return window.__layerPipEventMap
+        if (isDocument) return (document as any).__layerPipEventMap
+        return this.__layerPipEventMap
       }
 
       try {
@@ -134,7 +134,7 @@ function main() {
     disableMap[qs].push(event)
 
     function rmEv(tar: any, fn: noop) {
-      let eventList = (tar as any).eventMap?.[event] ?? []
+      let eventList = (tar as any).__layerPipEventMap?.[event] ?? []
       eventList.forEach((ev: any) => {
         if (!isUndefined(ev.state)) fn.call(tar, event, ev.fn, ev.state)
         else fn.call(tar, event, ev.fn)
@@ -167,7 +167,7 @@ function main() {
     }
 
     function addEv(tar: any, fn: noop) {
-      let eventList = (tar as any).eventMap?.[event] ?? []
+      let eventList = (tar as any).__layerPipEventMap?.[event] ?? []
       eventList.forEach((ev: any) => {
         if (ev.state) fn.call(tar, event, ev.fn, ev.state)
         else fn.call(tar, event, ev.fn)

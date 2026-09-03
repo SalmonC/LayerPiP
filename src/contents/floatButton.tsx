@@ -10,7 +10,7 @@ import { createRoot } from 'react-dom/client'
 import { getBrowserSyncStorage } from '@root/utils/storage'
 import { DRAG_POS } from '@root/shared/storeKey'
 
-const INIT_ATTR = 'rc-f-init'
+const INIT_ATTR = 'layerpip-float-button-initialized'
 async function initVideoFloatBtn(
   container: HTMLElement,
   vel: HTMLVideoElement,

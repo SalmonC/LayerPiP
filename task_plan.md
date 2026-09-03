@@ -1,12 +1,12 @@
-# Task Plan: FloatCaption 双小窗模式
+# Task Plan: LayerPiP 双小窗模式
 
 ## Goal
 
-在不削减字幕、弹幕和播放功能的前提下，将 FloatCaption 设计为可在设置中切换的 Document PiP 与 Edge 原生视频 PiP 两种模式。
+在不削减字幕、弹幕和播放功能的前提下，将 LayerPiP 设计为可在设置中切换的 Document PiP 与 Edge 原生视频 PiP 两种模式，同时保持稳定旧插件完全不受影响。
 
 ## Current Phase
 
-Phase 5
+Phase 4：新项目候选验证前隔离
 
 ## Phases
 
@@ -36,6 +36,8 @@ Phase 5
 ### Phase 4: Verification
 
 - [x] 构建与目标化检查
+- [x] 稳定旧插件源码、构建产物与回滚压缩包隔离
+- [x] 新项目名称、图标、固定 ID、配置与页面消息命名空间隔离
 - [ ] 真实 Edge / macOS 双模式冒烟测试
 - [ ] 分P、音频、进度拖拽、休眠恢复和失败回退检查
 - **Status:** user_validation
@@ -59,6 +61,7 @@ Phase 5
 | 保留 Document PiP 和原生视频 PiP 两个后端 | 同时满足完整 HTML 交互与原生无边框体验     |
 | 共享字幕/弹幕配置，后端只负责呈现         | 避免两套设置发生偏差                       |
 | 默认使用增强小窗                          | 保留已验证的稳定行为，原生模式先由用户选择 |
+| 新项目固定 ID 且不迁移旧配置             | 旧插件始终可回退，两个产品不会互相覆盖     |
 | 字幕映射按 aid + cid 保存                 | 防止 P 序调整后抓错内容                    |
 
 ## Errors Encountered

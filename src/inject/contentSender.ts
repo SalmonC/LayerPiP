@@ -4,8 +4,8 @@ import type { TProtocolMap } from './injectMessagerType'
 
 export const { offMessage, onMessage, onMessageOnce, sendMessage } =
   createMessager<TProtocolMap>({
-    listenType: 'inject-response',
-    sendType: 'inject-request',
+    listenType: 'layerpip-inject-response',
+    sendType: 'layerpip-inject-request',
   })
 
 type First<T extends any[]> = T[0]

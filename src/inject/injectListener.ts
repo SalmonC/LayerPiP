@@ -8,6 +8,6 @@ export const {
   onMessageOnce: onMessageOnce_inject,
   sendMessage: sendMessage_inject,
 } = createMessager<TProtocolMap>({
-  sendType: 'inject-response',
-  listenType: 'inject-request',
+  sendType: 'layerpip-inject-response',
+  listenType: 'layerpip-inject-request',
 })

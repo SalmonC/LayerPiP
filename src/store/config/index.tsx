@@ -32,7 +32,7 @@ import isDev from '@root/shared/isDev'
 import Browser from 'webextension-polyfill'
 import { createRoot, Root } from 'react-dom/client'
 import { ATTR_DISABLE_INJECT_PIP } from '@root/shared/config'
-import FloatCaptionSettings from '@root/components/FloatCaptionSettings'
+import LayerPipSettings from '@root/components/LayerPipSettings'
 import { PipMode } from '@root/types/config'
 import config_floatButton from './floatButton'
 import config_shortcut from './shortcut'
@@ -41,10 +41,7 @@ import config_specialWebsites from './specialWebsites'
 import config_danmaku from './danmaku'
 import { docPIPConfig } from './docPIP'
 import config_features from './features'
-import {
-  FLOAT_CAPTION_SAFE_DEFAULTS,
-  normalizeFloatCaptionConfig,
-} from './floatCaption'
+import { LAYER_PIP_SAFE_DEFAULTS, normalizeLayerPipConfig } from './layerPip'
 
 if (isDev) {
   configure({
@@ -280,7 +277,7 @@ export const baseConfigMap = {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `dmMiniPlayer-settings-${new Date().toISOString().slice(0, 10)}.json`
+        a.download = `layerpip-settings-${new Date().toISOString().slice(0, 10)}.json`
         a.click()
         URL.revokeObjectURL(url)
       }
@@ -332,7 +329,7 @@ const {
   mobx: { makeAutoObservable, observer, observe: mobxObserve },
   i18n: getIsZh() ? zh : en,
   async onSave(newConfig) {
-    newConfig = normalizeFloatCaptionConfig(newConfig)
+    newConfig = normalizeLayerPipConfig(newConfig)
 
     if (newConfig.language) {
       await setBrowserLocalStorage(LOCALE, newConfig.language)
@@ -377,7 +374,7 @@ const {
       DM_MINI_PLAYER_CONFIG,
     )) as any
 
-    const loadedConfig = normalizeFloatCaptionConfig({
+    const loadedConfig = normalizeLayerPipConfig({
       ...config,
       ...(savedConfig ?? {}),
     }) as typeof config
@@ -463,7 +460,7 @@ const openSettingPanel = (input?: SettingsTarget) => {
   settingsHost = host
   settingsRoot = createRoot(mount)
   settingsRoot.render(
-    <FloatCaptionSettings
+    <LayerPipSettings
       values={configStore}
       onPatch={(patch) => {
         _updateConfig(patch)
@@ -471,7 +468,7 @@ const openSettingPanel = (input?: SettingsTarget) => {
       }}
       onReset={() => {
         _updateConfig(
-          FLOAT_CAPTION_SAFE_DEFAULTS as unknown as Partial<typeof configStore>,
+          LAYER_PIP_SAFE_DEFAULTS as unknown as Partial<typeof configStore>,
         )
         saveConfig()
       }}
@@ -498,7 +495,7 @@ const updateConfig = async (config?: Partial<typeof configStore>) => {
   } else {
     document.documentElement.removeAttribute(ATTR_DISABLE_INJECT_PIP)
   }
-  _updateConfig(normalizeFloatCaptionConfig(config))
+  _updateConfig(normalizeLayerPipConfig(config))
 }
 
 // 同步多个tab的config

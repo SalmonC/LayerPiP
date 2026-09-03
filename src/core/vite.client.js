@@ -1033,7 +1033,7 @@ async function handleMessage(payload) {
 
       if (reloadExt) {
         console.log('reloadExt')
-        window.dispatchEvent(new Event('dm-ext:reload'))
+        window.dispatchEvent(new Event('layerpip-ext:reload'))
         return
       }
 

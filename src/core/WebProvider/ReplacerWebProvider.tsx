@@ -61,7 +61,7 @@ export default class ReplacerWebProvider extends WebProvider {
           e.stopPropagation()
 
           window.dispatchEvent(
-            new CustomEvent(`dm-${e.type}`, {
+            new CustomEvent(`layerpip-player-${e.type}`, {
               detail: e,
               bubbles: true,
             }),
@@ -69,7 +69,7 @@ export default class ReplacerWebProvider extends WebProvider {
         }
         const shadowRootKeyEvent = (e: Event) => {
           window.dispatchEvent(
-            new CustomEvent(`dm-${e.type}`, {
+            new CustomEvent(`layerpip-player-${e.type}`, {
               detail: e,
               bubbles: true,
             }),
@@ -122,7 +122,7 @@ export default class ReplacerWebProvider extends WebProvider {
         if (!isIframe()) return
         return onPostMessage(PostMessageEvent.fullInWeb_eventProxy, (data) => {
           window.dispatchEvent(
-            new CustomEvent(`dm-${data.type}`, {
+            new CustomEvent(`layerpip-player-${data.type}`, {
               detail: {
                 ...data,
                 stopPropagation: () => {},

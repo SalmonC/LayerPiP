@@ -7,7 +7,7 @@ import { LoadingOutlined } from '@ant-design/icons'
 import { useAction, useOnce } from '../hook'
 
 const errorTypeMap: Record<string, string> = {
-  'user-activation': '请回到网页点击任意位置，浮幕会继续打开。',
+  'user-activation': '请回到网页点击任意位置，叠映会继续打开。',
   'no-video': '当前页面没有检测到可播放的视频。',
   'no-support': '浏览器内部页面不支持打开视频小窗。',
 }
@@ -60,8 +60,8 @@ const Page_popup: FC = () => {
       <header className="fc-popup-header">
         <img src="./assets/icon64.png" width="38" height="38" alt="" />
         <div>
-          <span>FLOATCAPTION</span>
-          <h1>浮幕</h1>
+          <span>LAYERPIP</span>
+          <h1>叠映</h1>
         </div>
       </header>
 

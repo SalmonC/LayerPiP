@@ -27,6 +27,13 @@
 | TypeScript baseline | `pnpm exec tsc --noEmit` | 被既有依赖声明和旧代码错误阻断 | baseline-fail |
 | Edge functional validation | 双模式、分P、音频、seek、字幕对齐 | 按用户要求未执行 | user-owned |
 
+## Successor isolation
+
+- 稳定旧插件已恢复到 `f7efb70` / `custom-v0.7.1`，其 `dist` 已重新构建并冻结为独立回滚压缩包。
+- 双模式开发已迁入独立 `LayerPiP` 工作树，不再修改或构建旧插件目录。
+- LayerPiP 使用名称“叠映”、独立图标、固定扩展 ID `jnonlboihmjeahenhlbkjdijicakfnjj`、`LAYERPIP_*_V1` 存储键和 `layerpip-assets-v1` IndexedDB。
+- LayerPiP 尚未安装；用户继续使用稳定旧插件，直到新项目成为候选可用版本。
+
 ## Error Log
 
 | Timestamp        | Error                 | Attempt | Resolution              |

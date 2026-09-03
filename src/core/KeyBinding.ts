@@ -82,13 +82,16 @@ export class KeyBinding {
         keydownWindow.addEventListener('keydown', (e) => {
           this.handleKeyDown(e)
         })
-        keydownWindow.addEventListener('dm-keydown' as any, (e) => {
-          this.handleCustomKeyDown(e)
-        })
+        keydownWindow.addEventListener(
+          'layerpip-player-keydown' as any,
+          (e) => {
+            this.handleCustomKeyDown(e)
+          },
+        )
         keydownWindow.addEventListener('keyup', (e) => {
           this.handleKeyUp(e)
         })
-        keydownWindow.addEventListener('dm-keyup' as any, (e) => {
+        keydownWindow.addEventListener('layerpip-player-keyup' as any, (e) => {
           this.handleCustomKeyUp(e)
         })
       }),

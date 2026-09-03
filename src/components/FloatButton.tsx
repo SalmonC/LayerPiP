@@ -329,8 +329,8 @@ const FloatButton: FC<Props> = (props) => {
               <button
                 type="button"
                 className="start-pip-btn fc-float-button"
-                aria-label="打开浮幕小窗"
-                title="打开浮幕小窗"
+                aria-label="打开叠映小窗"
+                title="打开叠映小窗"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleStartPIP()
@@ -351,8 +351,8 @@ const FloatButton: FC<Props> = (props) => {
               <button
                 type="button"
                 className="setting-btn fc-float-button"
-                aria-label="打开浮幕设置"
-                title="打开浮幕设置"
+                aria-label="打开叠映设置"
+                title="打开叠映设置"
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()

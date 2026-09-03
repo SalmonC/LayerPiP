@@ -1,7 +1,7 @@
 import { DocPIPRenderType, PipMode } from '@root/types/config'
 
-/** Hidden runtime invariants for the focused FloatCaption product. */
-export const FLOAT_CAPTION_CORE_CONFIG = {
+/** Hidden runtime invariants for the focused LayerPiP product. */
+export const LAYER_PIP_CORE_CONFIG = {
   docPIP_renderType: DocPIPRenderType.replaceVideoEl,
   injectPIPFn: true,
   showReplacerBtn: false,
@@ -31,7 +31,7 @@ export const FLOAT_CAPTION_CORE_CONFIG = {
   disable_sites: [] as string[],
 } as const
 
-export const FLOAT_CAPTION_VISIBLE_DEFAULTS = {
+export const LAYER_PIP_VISIBLE_DEFAULTS = {
   pipMode: PipMode.document,
   nativeCompositeOptIn: false,
   floatButtonVisible: true,
@@ -49,14 +49,14 @@ export const FLOAT_CAPTION_VISIBLE_DEFAULTS = {
   maxTunnel: '1/2',
 } as const
 
-export const FLOAT_CAPTION_SAFE_DEFAULTS = {
-  ...FLOAT_CAPTION_VISIBLE_DEFAULTS,
-  ...FLOAT_CAPTION_CORE_CONFIG,
+export const LAYER_PIP_SAFE_DEFAULTS = {
+  ...LAYER_PIP_VISIBLE_DEFAULTS,
+  ...LAYER_PIP_CORE_CONFIG,
 }
 
-export function normalizeFloatCaptionConfig<T extends Record<string, unknown>>(
+export function normalizeLayerPipConfig<T extends Record<string, unknown>>(
   config: T,
-): T & typeof FLOAT_CAPTION_CORE_CONFIG {
+): T & typeof LAYER_PIP_CORE_CONFIG {
   const pipMode =
     config.pipMode === PipMode.nativeComposite &&
     config.nativeCompositeOptIn === true
@@ -64,12 +64,12 @@ export function normalizeFloatCaptionConfig<T extends Record<string, unknown>>(
       : PipMode.document
   const normalized = {
     ...config,
-    ...FLOAT_CAPTION_CORE_CONFIG,
+    ...LAYER_PIP_CORE_CONFIG,
     pipMode,
     nativeCompositeOptIn:
       pipMode === PipMode.nativeComposite &&
       config.nativeCompositeOptIn === true,
-  } as T & typeof FLOAT_CAPTION_CORE_CONFIG
+  } as T & typeof LAYER_PIP_CORE_CONFIG
   delete (normalized as Record<string, unknown>).useDocPIP
   return normalized
 }

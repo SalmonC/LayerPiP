@@ -2,7 +2,7 @@ import type { SubtitleAsset } from '@root/core/SubtitleSource/types'
 import WebextEvent from '@root/shared/webextEvent'
 import { onMessage } from 'webext-bridge/background'
 
-const DATABASE_NAME = 'floatcaption'
+const DATABASE_NAME = 'layerpip-assets-v1'
 const DATABASE_VERSION = 1
 const STORE_NAME = 'subtitle-assets'
 

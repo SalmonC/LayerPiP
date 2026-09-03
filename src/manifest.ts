@@ -3,13 +3,13 @@ import packageJson from '../package.json'
 const version = packageJson.version
 
 export const manifest: chrome.runtime.ManifestV3 = {
-  name: '__MSG_appNameFloatCaption__',
+  name: '__MSG_appNameLayerPiP__',
   description: '__MSG_appDesc__',
-  author: 'FloatCaption contributors; based on apades/dmMiniPlayer' as any,
+  author: 'LayerPiP contributors; based on apades/dmMiniPlayer' as any,
   manifest_version: 3,
-  homepage_url: 'https://github.com/apades/dmMiniPlayer',
   version,
-  version_name: `FloatCaption ${version}`,
+  version_name: `LayerPiP ${version}`,
+  key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsEX5LjQJRb63yOlR7CeDKjncLBxrk3+ETlQC2miM8dAOCHfyhXBZE1CsIbJwTGJ3SuwAUPQicPofPPAydWM559K24Yfi1HQfPx6J6wwkGSiBDaXyZ8gaSsE70NvjaozsU1eSH1b0oQCSHcCHmPdPCuVfsMPsfaQFYSvgwKkbVlikME7IOpwkfgb5H9amJmFK7n7ogcXoDHudyIWcSdwKaBW60lvWRIP0fOmU8fa6je5K93YEbxUiCtZePCkuA+k9EEipkH2iqlCejnZ0Wa27ovRHWO/r1I0qc/n6FWc4Jb0HMatE13MT3U3gj3sF3q2B582HUrPt6eYE3Y0+jblUBwIDAQAB',
   icons: {
     '16': 'assets/icon16.png',
     '32': 'assets/icon32.png',

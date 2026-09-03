@@ -1,8 +1,8 @@
 {
-  "name": "floatcaption",
-  "version": "0.7.1",
+  "name": "layerpip",
+  "version": "0.1.0",
   "license": "CC-BY-NC-4.0",
-  "author": "FloatCaption contributors; based on apades/dmMiniPlayer",
+  "author": "LayerPiP contributors; based on apades/dmMiniPlayer",
   "type": "module",
   "private": true,
   "engines": {

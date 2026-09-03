@@ -40,7 +40,7 @@ if (isTop) {
       PostMessageEvent.detectVideo_resp,
       dq('video').map((v, i) => {
         return {
-          id: v.getAttribute('data-dm-vid') || '',
+          id: v.getAttribute('data-layerpip-video-id') || '',
           w: v.clientWidth,
           h: v.clientHeight,
           isMute: v.muted,
@@ -333,7 +333,9 @@ function main() {
             return
           }
           default: {
-            return openPlayer({ videoEl: dq1Adv(`video[data-dm-vid="${id}"]`) })
+            return openPlayer({
+              videoEl: dq1Adv(`video[data-layerpip-video-id="${id}"]`),
+            })
           }
         }
       }

@@ -68,9 +68,12 @@ function useTargetEventListener(
       const detail = e.detail
       handlerRef.current(detail as any)
     }
-    target.addEventListener('dm-' + eventName, handleKeyDownCustom)
+    target.addEventListener('layerpip-player-' + eventName, handleKeyDownCustom)
     return () => {
-      target.removeEventListener('dm-' + eventName, handleKeyDownCustom)
+      target.removeEventListener(
+        'layerpip-player-' + eventName,
+        handleKeyDownCustom,
+      )
     }
   }, [target, handlerRef.current])
 }
