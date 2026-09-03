@@ -34,12 +34,17 @@ export type NetworkSubtitleTrack = {
   label: string
   /**实际字幕文件或 B 站字幕 JSON 地址 */
   value: string
+  /** 稳定的语言代码，用于重新请求临时字幕 URL 后找回同一轨道。 */
+  language?: string
 }
 
 export type NetworkSubtitleProbe = {
   sourceLabel: string
+  aid?: string
+  bvid?: string
   parts: NetworkSubtitlePart[]
   selectedPart?: number
+  selectedCid?: string
   needsPartSelection: boolean
   tracks: NetworkSubtitleTrack[]
 }

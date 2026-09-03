@@ -1,5 +1,6 @@
 import type configStore from '@root/store/config'
 import { Language } from '@root/utils/i18n'
+import type { SubtitleSourceBindings } from '@root/core/SubtitleSource/types'
 
 function key<T = any>(key: string) {
   return key as string & { __key: T }
@@ -33,3 +34,8 @@ export const LOCALE = key<Language>('LOCALE')
 export const DANMAKU_VISIBLE = key<boolean>('DANMAKU_VISIBLE')
 
 export const NEED_RELOAD = key<boolean>('NEED_RELOAD')
+
+/** 按 B 站 aid + cid 保存的原生小窗字幕来源，不参与浏览器同步。 */
+export const SUBTITLE_SOURCE_BINDINGS = key<SubtitleSourceBindings>(
+  'SUBTITLE_SOURCE_BINDINGS',
+)

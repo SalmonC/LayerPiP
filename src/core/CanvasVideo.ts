@@ -25,6 +25,7 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
   canvas = document.createElement('canvas')
   ctx = this.canvas.getContext('2d')!
   private animationFrameSignal = 0
+  private disposed = false
   isPause = true
   hasSeek = true
 
@@ -71,7 +72,7 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
 
     this.isPause = videoEl.paused
 
-    const clearEventListener = addEventListener(videoEl, (videoEl) => {
+    this.clearEventListener = addEventListener(videoEl, (videoEl) => {
       videoEl.addEventListener('pause', () => {
         this.isPause = true
         this.stopRenderAsCanvas()
@@ -91,7 +92,12 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
       })
     })
 
-    this.on(PlayerEvent.close, clearEventListener)
+    const unlistenClose = this.on2(PlayerEvent.close, () => this.dispose())
+    const clearVideoListeners = this.clearEventListener
+    this.clearEventListener = () => {
+      unlistenClose()
+      clearVideoListeners()
+    }
   }
 
   //   containerWidth = 0
@@ -157,6 +163,7 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
 
   // 在video play时使用，减少性能消耗
   startRenderAsCanvas() {
+    if (this.disposed || this.animationFrameSignal) return false
     try {
       this.animationFrameSignal = requestAnimationFrame(() =>
         this.frameUpdate(),
@@ -177,6 +184,7 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
   withoutLimitAnimaFPS = 0
   protected hansDraw = false
   protected frameUpdate(force = false) {
+    if (this.disposed) return
     if (force || (this.fps != 0 ? this.checkFPSLimit() : true)) {
       if (force || !this.isPause || !this.hansDraw) {
         this.hansDraw = true
@@ -261,5 +269,13 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
     this.canvas.style.left = '0'
     this.canvas.style.zIndex = '9999999'
     document.body.appendChild(this.canvas)
+  }
+
+  dispose() {
+    if (this.disposed) return
+    this.disposed = true
+    this.stopRenderAsCanvas()
+    this.clearEventListener()
+    this.canvas.remove()
   }
 }

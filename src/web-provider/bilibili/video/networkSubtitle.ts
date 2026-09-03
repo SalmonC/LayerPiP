@@ -12,6 +12,14 @@ type BilibiliVideoRef = {
   explicitPart?: number
 }
 
+export type BilibiliVideoCatalog = {
+  sourceLabel: string
+  aid: string
+  bvid?: string
+  explicitPart?: number
+  parts: NetworkSubtitlePart[]
+}
+
 export function parseBilibiliVideoUrl(input: string): BilibiliVideoRef | null {
   let url: URL
   try {
@@ -50,7 +58,7 @@ function assertApiData(response: any, context: string) {
   return response.data
 }
 
-function parsePages(rawPages: any): NetworkSubtitlePart[] {
+export function parseBilibiliPages(rawPages: any): NetworkSubtitlePart[] {
   if (!Array.isArray(rawPages) || rawPages.length === 0) {
     throw new Error('视频没有可用的分P信息')
   }
@@ -78,6 +86,29 @@ function parsePages(rawPages: any): NetworkSubtitlePart[] {
   })
 }
 
+export async function readBilibiliVideoCatalog(
+  input: string,
+  fetchJson: FetchJson,
+): Promise<BilibiliVideoCatalog | null> {
+  const videoRef = parseBilibiliVideoUrl(input)
+  if (!videoRef) return null
+
+  const viewUrl = new URL('https://api.bilibili.com/x/web-interface/view')
+  if (videoRef.bvid) viewUrl.searchParams.set('bvid', videoRef.bvid)
+  if (videoRef.aid) viewUrl.searchParams.set('aid', videoRef.aid)
+  const videoData = assertApiData(
+    await fetchJson(viewUrl.href, { credentials: 'include' }),
+    '读取视频信息',
+  )
+  return {
+    sourceLabel: String(videoData.title || videoRef.bvid || videoRef.aid),
+    aid: String(videoData.aid),
+    bvid: typeof videoData.bvid === 'string' ? videoData.bvid : videoRef.bvid,
+    explicitPart: videoRef.explicitPart,
+    parts: parseBilibiliPages(videoData.pages),
+  }
+}
+
 function normalizeSubtitleUrl(rawUrl: unknown) {
   if (typeof rawUrl !== 'string' || !rawUrl.trim()) {
     throw new Error('字幕轨道缺少下载地址')
@@ -95,22 +126,16 @@ export async function probeBilibiliNetworkSubtitle(
   selectedPart: number | undefined,
   fetchJson: FetchJson,
 ): Promise<NetworkSubtitleProbe | null> {
-  const videoRef = parseBilibiliVideoUrl(input)
-  if (!videoRef) return null
+  const catalog = await readBilibiliVideoCatalog(input, fetchJson)
+  if (!catalog) return null
+  const parts = catalog.parts
 
-  const viewUrl = new URL('https://api.bilibili.com/x/web-interface/view')
-  if (videoRef.bvid) viewUrl.searchParams.set('bvid', videoRef.bvid)
-  if (videoRef.aid) viewUrl.searchParams.set('aid', videoRef.aid)
-  const videoData = assertApiData(
-    await fetchJson(viewUrl.href, { credentials: 'include' }),
-    '读取视频信息',
-  )
-  const parts = parsePages(videoData.pages)
-
-  const partNumber = videoRef.explicitPart ?? selectedPart
+  const partNumber = catalog.explicitPart ?? selectedPart
   if (partNumber === undefined) {
     return {
-      sourceLabel: String(videoData.title || videoRef.bvid || videoRef.aid),
+      sourceLabel: catalog.sourceLabel,
+      aid: catalog.aid,
+      bvid: catalog.bvid,
       parts,
       needsPartSelection: true,
       tracks: [],
@@ -123,7 +148,7 @@ export async function probeBilibiliNetworkSubtitle(
   if (!part) throw new Error(`视频不存在 P${partNumber}，已停止加载以避免抓错`)
 
   const playerUrl = new URL('https://api.bilibili.com/x/player/wbi/v2')
-  playerUrl.searchParams.set('aid', String(videoData.aid))
+  playerUrl.searchParams.set('aid', catalog.aid)
   playerUrl.searchParams.set('cid', part.cid)
   const playerData = assertApiData(
     await fetchJson(playerUrl.href, { credentials: 'include' }),
@@ -137,7 +162,7 @@ export async function probeBilibiliNetworkSubtitle(
     throw new Error(`P${part.page} 没有可用字幕轨道`)
   }
 
-  const sourceLabel = String(videoData.title || videoRef.bvid || videoRef.aid)
+  const sourceLabel = catalog.sourceLabel
   const tracks: NetworkSubtitleTrack[] = rawTracks.map(
     (track: any, index: number) => {
       const language = String(
@@ -146,14 +171,18 @@ export async function probeBilibiliNetworkSubtitle(
       return {
         label: `[网络] ${sourceLabel} · P${part.page} · ${language}`,
         value: normalizeSubtitleUrl(track?.subtitle_url),
+        language: String(track?.lan || track?.lan_doc || ''),
       }
     },
   )
 
   return {
     sourceLabel,
+    aid: catalog.aid,
+    bvid: catalog.bvid,
     parts,
     selectedPart: part.page,
+    selectedCid: part.cid,
     needsPartSelection: false,
     tracks,
   }

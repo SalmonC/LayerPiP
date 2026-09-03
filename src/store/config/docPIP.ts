@@ -3,6 +3,7 @@ import {
   Position,
   DocPIPRenderType,
   MovePIPAfterOpenType,
+  PipMode,
 } from '@root/types/config'
 import { t } from '@root/utils/i18n'
 
@@ -81,11 +82,6 @@ export const docPIPConfig = {
         label: t(`pos.${v}`),
       })),
   }),
-  useDocPIP: config({
-    defaultValue: !!window?.documentPictureInPicture,
-    label: t('settingPanel.useDocPIP'),
-    desc: t('settingPanel.useDocPIPDesc'),
-  }),
   docPIP_renderType: config<DocPIPRenderType>({
     // notRecommended: true,
     label: t('settingPanel.docPIP_renderType'),
@@ -120,8 +116,8 @@ export const docPIPConfig = {
       DocPIPRenderType.replaceWebVideoDom,
       // DocPIPRenderType.injectMediaSource,
     ],
-    relateBy: 'useDocPIP',
-    relateByValue: true,
+    relateBy: 'pipMode',
+    relateByValue: PipMode.document,
   }),
   sameOriginIframeCaptureModePriority: config({
     label: t('settingPanel.sameOriginIframe'),

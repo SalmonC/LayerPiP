@@ -65,6 +65,11 @@ export enum DocPIPRenderType {
   replaceWebVideoDom = 'replaceWebVideoDom',
 }
 
+export enum PipMode {
+  document = 'document',
+  nativeComposite = 'native-composite',
+}
+
 export enum Position {
   default = 'default',
   topLeft = 'topLeft',

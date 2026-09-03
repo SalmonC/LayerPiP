@@ -83,8 +83,11 @@ function main() {
     // 避免多次open
     if (isWaiting) return
     isWaiting = true
-    await getProvider()?.openPlayer(props)
-    isWaiting = false
+    try {
+      await getProvider()?.openPlayer(props)
+    } finally {
+      isWaiting = false
+    }
   }
 
   const requestVideoPIP = async () => {

@@ -11,6 +11,7 @@ import {
   applyNetworkSubtitleOffset,
   createDirectSubtitleProbe,
   parseNetworkSubtitleContent,
+  parseSubtitleContent,
 } from './networkSubtitle'
 import assParser from './subtitleParser/ass'
 import srtParser from './subtitleParser/srt'
@@ -43,6 +44,14 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   private customSubtitleId = 0
   private lifecycleGeneration = 0
 
+  protected getLifecycleGeneration() {
+    return this.lifecycleGeneration
+  }
+
+  protected isLifecycleCurrent(generation: number) {
+    return generation === this.lifecycleGeneration
+  }
+
   nowSubtitleItemsLabel: string = ''
 
   protected onUnloadFn: (() => void)[] = []
@@ -74,13 +83,13 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
 
   protected initing = false
   async init(video: HTMLVideoElement) {
-    if (this.initing) return
-    // console.trace('init subtitleManager')
     this.reset()
+    const generation = this.lifecycleGeneration
     this.video = video
 
     this.initing = true
     const [err] = await tryCatch(async () => this.onInit())
+    if (!this.isLifecycleCurrent(generation)) return
     this.initing = false
     if (err) {
       toast.error(t('error.subtitleLoad'))
@@ -163,6 +172,20 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
       throw new Error('应用时间偏移后没有可显示的字幕')
     }
     return this.addCustomSubtitleRows(track.label, rows)
+  }
+
+  addSubtitleContent(
+    label: string,
+    content: string,
+    sourceName: string,
+    offset = 0,
+  ) {
+    const rows = applyNetworkSubtitleOffset(
+      parseSubtitleContent(content, sourceName),
+      offset,
+    )
+    if (!rows.length) throw new Error('字幕文件没有可显示的内容')
+    return this.addCustomSubtitleRows(label, rows)
   }
 
   protected addCustomSubtitleRows(label: string, rows: SubtitleRow[]) {
@@ -341,6 +364,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
 
   reset() {
     this.lifecycleGeneration++
+    this.initd = false
     this.subtitleItems.length = 0
     this.subtitleCache.clear()
     this.resetSubtitleState()

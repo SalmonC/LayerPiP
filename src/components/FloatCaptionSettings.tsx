@@ -1,6 +1,8 @@
 import { CloseOutlined, ReloadOutlined } from '@ant-design/icons'
 import { observer } from 'mobx-react'
 import { FC, useEffect, useRef, useState } from 'react'
+import { PipMode } from '@root/types/config'
+import NativeSubtitleSourceSettings from './NativeSubtitleSourceSettings'
 
 type SettingsValues = Record<string, any>
 
@@ -129,6 +131,46 @@ const FloatCaptionSettings: FC<Props> = observer(
           <main className="fc-settings-content">
             {tab === 'general' && (
               <div className="fc-settings-section">
+                <fieldset className="fc-setting-group">
+                  <legend>小窗模式</legend>
+                  <div className="fc-segmented-control" aria-label="小窗模式">
+                    <button
+                      type="button"
+                      aria-pressed={values.pipMode === PipMode.document}
+                      className={
+                        values.pipMode === PipMode.document ? 'is-active' : ''
+                      }
+                      onClick={() =>
+                        onPatch({
+                          pipMode: PipMode.document,
+                          nativeCompositeOptIn: false,
+                        })
+                      }
+                    >
+                      <strong>增强小窗</strong>
+                      <small>完整控件与字幕菜单</small>
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={values.pipMode === PipMode.nativeComposite}
+                      className={
+                        values.pipMode === PipMode.nativeComposite
+                          ? 'is-active'
+                          : ''
+                      }
+                      onClick={() =>
+                        onPatch({
+                          pipMode: PipMode.nativeComposite,
+                          nativeCompositeOptIn: true,
+                        })
+                      }
+                    >
+                      <strong>Edge 原生小窗</strong>
+                      <small>合成视频、弹幕与字幕</small>
+                    </button>
+                  </div>
+                  <p>切换后在下一次打开小窗时生效。</p>
+                </fieldset>
                 <SwitchField
                   label="显示网页浮动入口"
                   description="在检测到视频时显示浮幕按钮"
@@ -179,6 +221,9 @@ const FloatCaptionSettings: FC<Props> = observer(
 
             {tab === 'subtitle' && (
               <div className="fc-settings-section">
+                {values.pipMode === PipMode.nativeComposite && (
+                  <NativeSubtitleSourceSettings />
+                )}
                 <RangeField
                   label="字号"
                   value={values.subtitle_fontSize}

@@ -1,4 +1,5 @@
 import { noop } from '@root/utils'
+import type SubtitleManager from '@root/core/SubtitleManager'
 import { DanmakuEngine } from '..'
 import { DanmakuEngineInitProps } from '../DanmakuEngine'
 import Danmaku from './CanvasDanmaku'
@@ -10,6 +11,11 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
   declare runningDanmakus: Set<Danmaku>
 
   canvasDanmakuVideo?: CanvasDanmakuVideo
+  private compositeSubtitleManager?: SubtitleManager
+
+  enableCompositeVideo(subtitleManager?: SubtitleManager) {
+    this.compositeSubtitleManager = subtitleManager
+  }
   get canvas() {
     if (!this.canvasDanmakuVideo) throw Error('需要先调用init()')
     return this.canvasDanmakuVideo.canvas
@@ -39,6 +45,8 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
       fps: this.fps,
       width: this.container.clientWidth,
       height: this.container.clientHeight,
+      renderVideo: !!this.compositeSubtitleManager,
+      subtitleManager: this.compositeSubtitleManager,
     })
 
     this.container.appendChild(this.canvas)
@@ -47,7 +55,8 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
   private unlistens: noop[] = []
   onUnload(): void {
     this.unlistens.forEach((unlisten) => unlisten())
-    this.canvasDanmakuVideo?.resizeObserver.disconnect()
+    this.canvasDanmakuVideo?.dispose()
+    this.canvasDanmakuVideo = undefined
   }
 
   bindEvent() {

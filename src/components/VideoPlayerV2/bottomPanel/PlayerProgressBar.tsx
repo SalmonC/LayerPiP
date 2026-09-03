@@ -3,7 +3,16 @@ import useTargetEventListener from '@root/hook/useTargetEventListener'
 import { formatTime } from '@root/utils'
 import { useMemoizedFn } from 'ahooks'
 import classNames from 'classnames'
-import { FC, useContext, useEffect, useRef, useState } from 'react'
+import {
+  cloneElement,
+  FC,
+  HTMLAttributes,
+  ReactElement,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { observer } from 'mobx-react'
 import configStore from '@root/store/config'
 import { VideoPreviewData } from '@root/core/VideoPreviewManager'
@@ -19,6 +28,7 @@ const PlayerProgressBar: FC<Props> = (props) => {
   const { webVideo } = useContext(vpContext)
   const [playedPercent, setPlayedPercent] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [isSeeking, setSeeking] = useState(false)
 
   useTargetEventListener(
     'durationchange',
@@ -75,6 +85,7 @@ const PlayerProgressBar: FC<Props> = (props) => {
         className={classNames(
           'played-progress-bar',
           configStore.videoProgress_show && 'use-bottom-progress',
+          isSeeking && 'is-seeking',
         )}
         style={{
           '--bottom-progress-color': configStore.videoProgress_color,
@@ -86,8 +97,17 @@ const PlayerProgressBar: FC<Props> = (props) => {
           percent={playedPercent}
           onClick={handleOnclick}
           loadColor="#0669ff"
-          handleRender={(node, _props) => {
-            return <HandleWithToolTips {..._props} duration={duration} />
+          keyboard={false}
+          onBeforeChange={() => setSeeking(true)}
+          onChangeComplete={() => setSeeking(false)}
+          handleRender={(node, handleProps) => {
+            return (
+              <HandleWithToolTips
+                node={node as ReactElement<HTMLAttributes<HTMLDivElement>>}
+                {...handleProps}
+                duration={duration}
+              />
+            )
           }}
         ></ProgressBar>
 
@@ -99,34 +119,32 @@ const PlayerProgressBar: FC<Props> = (props) => {
 
 /**在进度条的handler单独的tooltips */
 const HandleWithToolTips: FC<
-  Parameters<Required<HandlesProps>['handleRender']>[1] & { duration: number }
+  Parameters<Required<HandlesProps>['handleRender']>[1] & {
+    duration: number
+    node: ReactElement<HTMLAttributes<HTMLDivElement>>
+  }
 > = (props) => {
   const [isVisible, setVisible] = useState(false)
-  const handleRef = useRef<HTMLDivElement>(null)
 
-  useTargetEventListener(
-    'mouseleave',
-    () => {
-      setVisible(false)
+  return cloneElement(
+    props.node,
+    {
+      style: {
+        ...props.node.props.style,
+        transform:
+          `${props.node.props.style?.transform ?? ''} translateY(-50%)`.trim(),
+      },
+      onMouseEnter: (event) => {
+        props.node.props.onMouseEnter?.(event)
+        setVisible(true)
+      },
+      onMouseLeave: (event) => {
+        props.node.props.onMouseLeave?.(event)
+        setVisible(false)
+      },
     },
-    handleRef.current,
-  )
-  useTargetEventListener(
-    'mouseenter',
-    () => {
-      setVisible(true)
-    },
-    handleRef.current,
-  )
-
-  return (
-    <div
-      ref={handleRef}
-      className="rc-slider-handle -translate-x-1/2"
-      style={{
-        left: `${props.value}%`,
-      }}
-    >
+    <>
+      {props.node.props.children}
       <div
         className={classNames(
           isVisible || props.dragging ? 'opacity-100' : 'opacity-0',
@@ -136,7 +154,7 @@ const HandleWithToolTips: FC<
       >
         {formatTime(props.duration * (props.value / 100))}
       </div>
-    </div>
+    </>,
   )
 }
 

@@ -1,8 +1,7 @@
-import { DocPIPRenderType } from '@root/types/config'
+import { DocPIPRenderType, PipMode } from '@root/types/config'
 
 /** Hidden runtime invariants for the focused FloatCaption product. */
 export const FLOAT_CAPTION_CORE_CONFIG = {
-  useDocPIP: true,
   docPIP_renderType: DocPIPRenderType.replaceVideoEl,
   injectPIPFn: true,
   showReplacerBtn: false,
@@ -33,6 +32,8 @@ export const FLOAT_CAPTION_CORE_CONFIG = {
 } as const
 
 export const FLOAT_CAPTION_VISIBLE_DEFAULTS = {
+  pipMode: PipMode.document,
+  nativeCompositeOptIn: false,
   floatButtonVisible: true,
   pauseInClose_video: true,
   disable_scrollToChangeVolume: false,
@@ -56,5 +57,19 @@ export const FLOAT_CAPTION_SAFE_DEFAULTS = {
 export function normalizeFloatCaptionConfig<T extends Record<string, unknown>>(
   config: T,
 ): T & typeof FLOAT_CAPTION_CORE_CONFIG {
-  return { ...config, ...FLOAT_CAPTION_CORE_CONFIG }
+  const pipMode =
+    config.pipMode === PipMode.nativeComposite &&
+    config.nativeCompositeOptIn === true
+      ? PipMode.nativeComposite
+      : PipMode.document
+  const normalized = {
+    ...config,
+    ...FLOAT_CAPTION_CORE_CONFIG,
+    pipMode,
+    nativeCompositeOptIn:
+      pipMode === PipMode.nativeComposite &&
+      config.nativeCompositeOptIn === true,
+  } as T & typeof FLOAT_CAPTION_CORE_CONFIG
+  delete (normalized as Record<string, unknown>).useDocPIP
+  return normalized
 }

@@ -2,6 +2,7 @@ import { ProtocolWithReturn } from 'webext-bridge'
 import { Props as DanmakuGetterProps } from '@pkgs/danmakuGetter/DanmakuGetter'
 import WebextEvent from './shared/webextEvent'
 import { DanmakuInitData } from './core/danmaku/DanmakuEngine'
+import type { SubtitleAsset } from './core/SubtitleSource/types'
 
 declare module 'webext-bridge' {
   export interface ProtocolMap {
@@ -39,6 +40,18 @@ declare module 'webext-bridge' {
       | { state: string; errType?: string }
     >
     [WebextEvent.openSetting]: void
+    [WebextEvent.putSubtitleAsset]: ProtocolWithReturn<
+      SubtitleAsset,
+      { id: string }
+    >
+    [WebextEvent.getSubtitleAsset]: ProtocolWithReturn<
+      { id: string },
+      SubtitleAsset | null
+    >
+    [WebextEvent.deleteSubtitleAsset]: ProtocolWithReturn<
+      { id: string },
+      { id: string }
+    >
     [WebextEvent.moveDocPIPPos]: { x: number; y: number; docPIPWidth: number }
     [WebextEvent.resizeDocPIP]: {
       width: number

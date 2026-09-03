@@ -480,8 +480,8 @@ const VideoPlayerV2Inner = observer(
                 {configStore.bp_sharpening && <SharpeningButton />}
 
                 <ActionButton
-                  aria-label="Open settings"
-                  title="Open settings"
+                  aria-label="打开设置"
+                  title="打开设置"
                   onClick={handleOpenSetting}
                   className="fc-narrow-hide mb:hidden"
                 >

@@ -77,19 +77,22 @@ function parseBilibiliJson(content: string): SubtitleRow[] | null {
   return rows
 }
 
-export function parseNetworkSubtitleContent(
+export function parseSubtitleContent(
   content: string,
-  sourceUrl: string,
+  sourceName: string,
 ): SubtitleRow[] {
   if (content.length > MAX_NETWORK_SUBTITLE_SIZE) {
-    throw new Error('网络字幕文件超过 10 MB，已拒绝加载')
+    throw new Error('字幕文件超过 10 MB，已拒绝加载')
   }
 
   const trimmed = content.trim()
-  if (!trimmed) throw new Error('网络字幕内容为空')
+  if (!trimmed) throw new Error('字幕内容为空')
 
-  const url = parseHttpUrl(sourceUrl)
-  const extension = url.pathname.split('.').pop()?.toLowerCase()
+  const extension = sourceName
+    .split(/[?#]/, 1)[0]
+    .split('.')
+    .pop()
+    ?.toLowerCase()
   let rows: SubtitleRow[] | null = null
 
   if (extension === 'srt') {
@@ -115,6 +118,14 @@ export function parseNetworkSubtitleContent(
     throw new Error('无法识别字幕格式，仅支持 SRT、ASS 或 B 站字幕 JSON')
   }
   return rows.sort((a, b) => a.startTime - b.startTime)
+}
+
+export function parseNetworkSubtitleContent(
+  content: string,
+  sourceUrl: string,
+) {
+  const url = parseHttpUrl(sourceUrl)
+  return parseSubtitleContent(content, url.pathname)
 }
 
 /**

@@ -12,7 +12,7 @@ import playerConfig from '@root/store/playerConfig'
 import { checkIsLive } from '@root/utils/video'
 import { SettingDanmakuEngine } from '@root/store/config/danmaku'
 import WebextEvent from '@root/shared/webextEvent'
-import { DocPIPRenderType, Position } from '@root/types/config'
+import { DocPIPRenderType, PipMode, Position } from '@root/types/config'
 import {
   CanvasDanmakuEngine,
   DanmakuEngine,
@@ -79,7 +79,8 @@ export default abstract class WebProvider
           configStore.docPIP_renderType) === DocPIPRenderType.replaceWebVideoDom
       )
         return new ReplacerWebProvider()
-      if (configStore.useDocPIP) return new DocPIPWebProvider()
+      if (configStore.pipMode === PipMode.document)
+        return new DocPIPWebProvider()
       return new CanvasPIPWebProvider()
     })()
 
@@ -94,7 +95,10 @@ export default abstract class WebProvider
 
   init() {
     this.danmakuEngine = (() => {
-      if (configStore.useHtmlDanmaku && configStore.useDocPIP) {
+      if (
+        configStore.useHtmlDanmaku &&
+        configStore.pipMode === PipMode.document
+      ) {
         if (configStore.htmlDanmakuEngine === SettingDanmakuEngine.IronKinoko)
           return new IronKinokoEngine()
         return new HtmlDanmakuEngine()

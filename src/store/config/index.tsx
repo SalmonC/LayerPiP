@@ -33,6 +33,7 @@ import Browser from 'webextension-polyfill'
 import { createRoot, Root } from 'react-dom/client'
 import { ATTR_DISABLE_INJECT_PIP } from '@root/shared/config'
 import FloatCaptionSettings from '@root/components/FloatCaptionSettings'
+import { PipMode } from '@root/types/config'
 import config_floatButton from './floatButton'
 import config_shortcut from './shortcut'
 import config_subtitle from './subtitle'
@@ -77,6 +78,19 @@ export const baseConfigMap = {
   ...docPIPConfig,
   ...config_shortcut,
   ...config_features,
+  pipMode: config<PipMode>({
+    label: '小窗模式',
+    defaultValue: PipMode.document,
+    type: 'group',
+    group: [
+      { label: '增强小窗', value: PipMode.document },
+      { label: 'Edge 原生小窗', value: PipMode.nativeComposite },
+    ],
+  }),
+  nativeCompositeOptIn: config({
+    defaultValue: false,
+    notRecommended: true,
+  }),
   language: config<Language>({
     label: 'Language',
     desc: 'Will reload page when language has changed',
@@ -346,9 +360,9 @@ const {
     //   }
     // }
 
-    if (newConfig.useDocPIP) {
+    if (newConfig.pipMode === PipMode.document) {
       if (!window?.documentPictureInPicture) {
-        delete (newConfig as any).useDocPIP
+        newConfig.pipMode = PipMode.nativeComposite
         alert(t('settingPanel.unsupportDocPIPTips'))
       }
     }
