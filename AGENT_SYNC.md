@@ -11,18 +11,35 @@
 ## 1. 当前状态
 
 - 版本（package.json / dist）：`0.2.15` / `0.2.15`
-- dist SHA-256：`74cf68734ecf4bd65988b0f4c802e13633681f7d47d69b277726c4d382814dce`
+- dist SHA-256：`74cf68734ecf4bd65988b0f4c802e13633681f7d47d69b277726c4d382814dce`（已用构建脚本同一算法独立回读，与收据一致）
 - 最近交付提交：`94a1bbc`（release 0.2.15）
+- **回退基线**：标签 `baseline/0.2.15` → `6fd1c42`（用户指定的"可用版本"；实机验收仍待确认）
 - 工作区：干净
-- 标签：`checkpoint/0.2.14`、`fix/docpip-default-size`
+- 标签：`baseline/0.2.15`、`checkpoint/0.2.14`、`fix/docpip-default-size`
 - 扩展 ID：`jnonlboihmjeahenhlbkjdijicakfnjj`（不变）
-- 更新人 / 时间：Codex / 2026-09-18
+- 更新人 / 时间：DeepSeek / 2026-09-18
+
+**回退方法**（改出问题就退回 0.2.15）：
+1. 代码：`git checkout baseline/0.2.15 -- .`；
+2. 产物：下一次构建会先把当前 dist 备份为 `.delivery/rollback-0.2.15-<时间戳>` 与 `safety-0.2.15-<时间戳>`，需要时把该目录内容复制回 `dist`（**不要删除任何回退目录**）。
 
 ## 2. 中断点 ← 接手时先看这里
 
 > 没有就写「无」。这是本文件最有价值的一节。
 
-**无。** 本轮仅确认交接规则并回读 0.2.15；未启动功能开发，没有半成品。DeepSeek 的 0.2.15 交付保留，实机验收仍待用户确认。
+**进行中：特性 1「高能进度条 + 已看双色着色」开始实施（DeepSeek，2026-09-18）**
+
+- **在做什么**：按 `docs/high-energy-progress-bar-plan.md` 实施。
+  - F1：进度条上「已看」区间用主题色、「未看」灰白，**与视频有没有热力条无关**
+  - F2：有官方数据时在进度条上方绘制高能曲线（弹幕密度）
+- **计划顺序**：P0 纯函数与接口 → P1 已看双色 → P2 官方曲线
+- **计划新增/改动文件**：
+  - 新增：`src/utils/highEnergyBar/*`（纯函数）、`src/api/bilibili/pbp.ts`（取数）、`src/core/HighEnergyBar/*`（已看区间采集与持久化）、`src/background/watchedRanges.ts`（独立 IndexedDB）、`src/components/VideoPlayerV2/bottomPanel/HeatBarOverlay.tsx`（渲染）
+  - 改动：`PlayerProgressBar.tsx/.less`（挂载覆盖层）、`BilibiliVideoProvider`（绑定 cid 与 tracker）、`src/store/config/*`（配置项）、`src/locales/*.json`（文案）
+- **接手提示**：若本轮中断，先看上面「计划新增/改动文件」里哪些已存在；`git status` 与 `git log` 对照；**不要**直接删掉半成品文件。
+- **关键前提**（详见实施文档与审阅回应）：已看区间用 `HTMLMediaElement.played` 采集，**不要**自己按时间采样；`played` 在换源时会重置，保存必须在换源前快照；接口必须带 `r=loader`，且响应顶层是 `modules`（不是 `data.modules`）。
+
+> 本轮之前的状态：无半成品，0.2.15 交付保留，实机验收仍待用户确认。
 
 ---
 
