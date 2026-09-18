@@ -15,6 +15,7 @@ import { formatTime } from '@root/utils'
 import type { VideoPreviewData } from '@root/core/VideoPreviewManager'
 import ProgressBar from '../../ProgressBar'
 import vpContext from '../context'
+import HeatBarOverlay from './HeatBarOverlay'
 import style from './PlayerProgressBar.less?inline'
 import ProgressThumb from './ProgressThumb'
 
@@ -167,6 +168,13 @@ const PlayerProgressBar: FC = () => {
         style={{ '--progress-color': color } as CSSProperties}
       >
         <style dangerouslySetInnerHTML={{ __html: style }} />
+        {/* 历史已看区间 + 高能曲线。只读 store，不在这里发请求或读写存储；
+            覆盖层 pointer-events:none，不影响拖动、悬停预览与焦点。 */}
+        <HeatBarOverlay
+          duration={duration}
+          playedPercent={playedPercent}
+          color={color}
+        />
         <div className="fc-progress-buffer" aria-hidden="true">
           {buffered.map((range, i) => (
             <span

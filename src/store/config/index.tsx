@@ -155,6 +155,21 @@ export const baseConfigMap = {
     relateByValue: true,
   }),
 
+  // 高能进度条 + 已看双色。首版只保留两个概念：
+  // 「显示已看区间」（所有视频生效）与「显示高能曲线」（仅有官方数据时生效）。
+  highEnergyBar_show: config({
+    defaultValue: true,
+    label: t('settingPanel.highEnergyBar_show'),
+    desc: t('settingPanel.highEnergyBar_showDesc'),
+  }),
+  highEnergyBar_curve: config({
+    defaultValue: true,
+    label: t('settingPanel.highEnergyBar_curve'),
+    desc: t('settingPanel.highEnergyBar_curveDesc'),
+    relateBy: 'highEnergyBar_show',
+    relateByValue: true,
+  }),
+
   sideWidth: config({
     defaultValue: 300,
     label: t('settingPanel.sideWidth'),

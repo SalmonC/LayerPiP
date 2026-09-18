@@ -41,6 +41,25 @@
     &.is-seeking {
       --progress-scale: 1.5;
     }
+    // 高能进度条覆盖层：只表达「历史已看区间」，不参与本次播放位置。
+    // 必须 pointer-events:none —— 绝不能吃掉拖动、悬停预览与焦点。
+    // 几何（bottom/height）需要与两种控制栏状态一起做视觉核对后再定稿。
+    .fc-heatbar {
+      position: absolute;
+      left: 0;
+      bottom: 10px;
+      width: 100%;
+      height: 16px;
+      overflow: visible;
+      pointer-events: none;
+      // 压在轨道与滑块之下，避免遮挡。
+      z-index: 0;
+      transition: opacity 0.2s;
+    }
+    // 与常驻底部细线保持一致：控制栏不在时不要留一条悬空的曲线。
+    .video-player-v2:not(.active) .fc-heatbar {
+      opacity: 0;
+    }
     .progress-bar {
       height: 100% !important;
       padding: 0;

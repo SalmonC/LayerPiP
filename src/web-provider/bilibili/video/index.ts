@@ -12,6 +12,8 @@ import { createElement } from 'react'
 import { addonRecovery } from '@root/core/AddonRecovery'
 import { sendMessage } from '@root/inject/contentSender'
 import { onSubtitleSourceChange } from '@root/core/SubtitleSource/repository'
+import highEnergyBar from '@root/core/HighEnergyBar/controller'
+import type { BilibiliVideoIdentity } from '@root/core/SubtitleSource/types'
 import { getDanmakus } from '../utils'
 import BiliBiliPreviewManager from './PreviewManager'
 import BilibiliSubtitleManager from './SubtitleManager'
@@ -71,6 +73,8 @@ export default class BilibiliVideoProvider {
 
   onUnload(): void {
     this.updateGeneration++
+    // 卸载前把已看区间落盘（`played` 不持久化，且换源会重置）。
+    void highEnergyBar.release()
     sendMessage('event-hacker:enable', {
       qs: 'document',
       event: 'visibilitychange',
@@ -84,8 +88,35 @@ export default class BilibiliVideoProvider {
     this.player.danmakuEngine?.resetState()
     void this.initDanmakus()
     void this.player.subtitleManager.init(this.player.webVideo)
+    void this.initHighEnergyBar()
     void this.initSideSwitcherData().catch(console.warn)
     this.player.videoPreviewManager?.init(this.player.webVideo)
+  }
+
+  /**
+   * 绑定高能进度条：解析当前 aid/cid，交给 controller 做已看区间采集与曲线取数。
+   * 这里只负责「拿到身份」，采集/存储/取数都在 core/HighEnergyBar 里，
+   * 避免把网络与持久化混进 provider 或组件。
+   */
+  async initHighEnergyBar() {
+    const generation = this.updateGeneration
+    let identity: BilibiliVideoIdentity | null = null
+    try {
+      const info = await getVideoInfoFromUrl(location.href)
+      if (info?.aid && info?.cid) {
+        identity = {
+          aid: String(info.aid),
+          cid: String(info.cid),
+          page: Number(new URL(location.href).searchParams.get('p') ?? 1) || 1,
+        }
+      }
+    } catch (error) {
+      console.warn('[highEnergyBar] 解析视频身份失败', error)
+    }
+    if (generation !== this.updateGeneration) return
+    // 即使身份解析失败也要 bind：让 controller 知道视频元素换了，
+    // 并挂起采集，避免把上一支视频的区间算到新视频上。
+    await highEnergyBar.bind(this.player.webVideo ?? null, identity)
   }
 
   getDanmakus = switchLatest(async () => {
