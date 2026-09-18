@@ -1,5 +1,39 @@
 # Findings & Decisions
 
+## 2026-09-18 Edge 扩展报 Unchecked runtime.lastError（bfcache 关闭扩展端口）
+
+**现象**：`edge://extensions` 的错误列表出现
+
+```
+Unchecked runtime.lastError: The page keeping the extension port is moved into
+back/forward cache, so the message channel is closed.
+```
+
+**原因（三层，都不是本项目代码的错）**：
+
+1. 项目用 `webext-bridge` v6 通信，它给每个内容脚本建立 `browser.runtime.connect()` 的**长连接端口**；
+2. Chromium 自 **Chrome/Edge 123** 起规定：带着扩展消息端口的页面被存入 **bfcache** 时，浏览器主动关闭该通道（官方扩展更新日志有说明），因为被冻结的页面不该再收发消息；
+3. 关闭时会设置 `runtime.lastError`，而 Chromium 要求 **`onDisconnect` 回调里必须读一次 `lastError`**，否则记为 "Unchecked"。`webext-bridge` 的两处断线处理都只重连、没读：
+   `dist/chunk-*.js` 的内容脚本侧 `port.onDisconnect.addListener(connect)`、
+   `dist/background.js` 的 `incomingPort.onDisconnect.addListener(() => {...})`。
+
+**影响**：基本无害。端口是按设计被关闭；页面在 bfcache 期间 JS 冻结，本来也处理不了消息；页面恢复时 `onDisconnect` 会触发重连，通信自动恢复。唯一实际影响是错误列表里有这条噪音，以及 bfcache 期间的 `sendMessage` 会失败。
+
+**可选修复**（尚未实施）：
+
+| 方案 | 做法 | 代价 |
+| --- | --- | --- |
+| A | 不管它 | 错误列表一直有这条 |
+| **B（推荐）** | patch `webext-bridge` 的两处 `onDisconnect`，各加一行 `void browser.runtime.lastError` 再重连 | 需要先把 patch 机制接起来 |
+| C | 改用 `runtime.sendMessage` 一次性消息，不用长连接 | 改动大，要替换所有 `sendMessage/onMessage` 调用点 |
+
+> ⚠️ 走 B 的前置问题：仓库里 `patches/@rc-component__util.patch` **目前是孤立文件**——
+> `package.json` 里没有 `patchedDependencies`，也没有 `patch-package` 依赖或 `postinstall` 钩子，
+> 所以它**不会生效**。要走 pnpm 原生 patch（`pnpm patch <pkg>@<ver>` → 改 → `pnpm patch-commit <dir>`），
+> 顺带能让那个 rc-component 的 patch 一起生效。
+
+**相关**：因为同一个触发点（`pagehide`），`autoPIP_inPageHide` 若开启，进入 bfcache 也会触发它（默认 `false`，安全）。
+
 ## 2026-09-16 单窗口多视频可行，关键路径是 iframe 而非自行拉流
 
 目标确认为「多个视频在同一个增强小窗里同时播放」（而非多个小窗）。实测在一个 Document PiP 窗口内嵌两个真实 B 站视频页 iframe，两路同时播放成功（6 秒内分别推进到 16.70 / 16.62 秒）。三个关键性质：PiP 文档继承 opener 源，与 `www.bilibili.com` iframe **同源**，可直接操作其 `video`；project manifest 的三个主内容脚本本就是 `all_frames: true`，pane 天然被注入；B 站视频页与 `player.bilibili.com` 均无框架限制头。

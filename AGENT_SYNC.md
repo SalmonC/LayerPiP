@@ -49,6 +49,11 @@
 - `.fc-heatbar` 的 `bottom/height`（`PlayerProgressBar.less`）仍是按估算给的；
   用户说「正常」但若觉得曲线偏高/偏低，改这两个值即可（属于纯视觉微调）。
 - 特性 2（单窗口多视频）未开工，两份实施文档在 `docs/`。
+- **已知噪音（未修）**：Edge 扩展错误列表里的
+  `Unchecked runtime.lastError: The page keeping the extension port is moved into
+  back/forward cache…`。根因与三个修复方案见 `findings.md`「2026-09-18 Edge 扩展报
+  Unchecked runtime.lastError」；来自 `webext-bridge` 的 onDisconnect 没读 lastError，
+  不是本项目代码缺陷。要修需先把 patch 机制接起来（`patches/` 里的文件目前不会生效）。
 
 **测试时的坑（供接手者省时间）**：
 1. `.start-pip-btn` 由 **mousemove** 惰性创建，自动化测试必须先 `page.mouse.move()` 划过播放器区域。
