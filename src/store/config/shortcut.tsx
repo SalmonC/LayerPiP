@@ -1,24 +1,30 @@
 import type { config as _config } from '@apad/setting-panel'
 import { Key, keyCodeToCode, keyToKeyCodeMap, KeyType } from '@root/types/key'
 import { t } from '@root/utils/i18n'
+import { shortcutKeys } from '@root/core/shortcutKeys'
 
 const keyTypeValues = Object.values(KeyType)
 const category = t('shortcut.shortcut')
 const config: typeof _config = (props) => ({
   category,
   render: ((val: Key[], onChange: (val: Key[]) => void) => {
+    const defaultValue =
+      typeof props === 'object' && props !== null && 'defaultValue' in props
+        ? (props as { defaultValue?: Key[] }).defaultValue
+        : undefined
+    const safeVal = shortcutKeys(val, defaultValue) as Key[]
     const [keyType, hasKeyType] = (() => {
-      const lastKey = val[val.length - 1]
+      const lastKey = safeVal[safeVal.length - 1]
       if (keyTypeValues.includes(lastKey as any)) return [lastKey, true]
       return [KeyType.keydown, false]
     })()
     const value = (() => {
       if (hasKeyType) {
-        const nv = [...val]
+        const nv = [...safeVal]
         nv.pop()
         return nv.join(' + ')
       }
-      return val.join(' + ')
+      return safeVal.join(' + ')
     })()
 
     return (
@@ -54,7 +60,7 @@ const config: typeof _config = (props) => ({
           value={keyType}
           onChange={(e) => {
             const keyType = e.target.value as Key
-            const nv = [...val]
+            const nv = [...safeVal]
             if (hasKeyType) {
               nv.pop()
             }
@@ -74,7 +80,7 @@ const config: typeof _config = (props) => ({
 
 export const disableRender = (val: Key[]) => (
   <input
-    value={val.join(' + ')}
+    value={Array.isArray(val) ? val.join(' + ') : ''}
     disabled
     style={{ cursor: 'not-allowed' }}
     onChange={() => {}}

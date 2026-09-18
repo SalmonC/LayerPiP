@@ -75,13 +75,16 @@ export default class VideoPlayerBase
 
   private unobserveVideoElChange = () => {}
   private unlistenOnClose = () => {}
+  private unlistenMetadata = () => {}
   protected onUnload() {}
 
   private src = ''
+  private lifecycleGeneration = 0
   async init() {
+    const generation = ++this.lifecycleGeneration
     this.unlistenOnClose = this.on2(PlayerEvent.close, () => {
       console.log('PlayerEvent.close')
-      this.unload()
+      void this.unload().catch(console.warn)
       this.danmakuEngine?.unload()
       this.unobserveVideoElChange()
       this.reset()
@@ -89,6 +92,8 @@ export default class VideoPlayerBase
     this.emit(PlayerEvent.videoPlayerBeforeInit)
 
     await this.onInit()
+    if (generation !== this.lifecycleGeneration)
+      throw new Error('播放器初始化已取消')
 
     const renderMode =
       playerConfig.forceDocPIPRenderType || configStore.docPIP_renderType
@@ -105,12 +110,17 @@ export default class VideoPlayerBase
 
     this.src = this.webVideoEl.src
 
-    this.webVideoEl.addEventListener('loadedmetadata', () => {
+    const source = this.webVideoEl
+    const onMetadata = () => {
       if (this.src !== this.webVideoEl.src) {
         this.src = this.webVideoEl.src
         this.emit(PlayerEvent.videoSrcChanged)
       }
-    })
+    }
+    this.unlistenMetadata()
+    source.addEventListener('loadedmetadata', onMetadata)
+    this.unlistenMetadata = () =>
+      source.removeEventListener('loadedmetadata', onMetadata)
 
     runInAction(() => {
       if (this.danmakuSender) {
@@ -125,10 +135,17 @@ export default class VideoPlayerBase
     this.emit(PlayerEvent.videoPlayerInitd)
   }
   async unload() {
+    this.lifecycleGeneration++
     this.emit(PlayerEvent.videoPlayerBeforeUnload)
     this.unlistenOnClose()
-    await this.onUnload()
-    this.emit(PlayerEvent.videoPlayerUnloaded)
+    this.unlistenMetadata()
+    this.unobserveVideoElChange()
+    try {
+      await this.onUnload()
+      this.emit(PlayerEvent.videoPlayerUnloaded)
+    } finally {
+      this.offAll()
+    }
   }
 
   protected onInit() {}

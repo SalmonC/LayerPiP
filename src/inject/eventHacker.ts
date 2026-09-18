@@ -32,10 +32,21 @@ function main() {
       fn: () => void,
       state: any,
     ) {
+      // A site's bare `addEventListener(...)` has no receiver in this strict wrapper.
+      const receiver = this ?? (isWindow ? window : tar)
+      const matches = (selector: string) => {
+        if (isDocOrWin(selector)) return true
+        if (typeof receiver?.matches !== 'function') return false
+        try {
+          return receiver.matches(selector)
+        } catch {
+          return false
+        }
+      }
       const getEventMap = () => {
         if (isWindow) return window.__layerPipEventMap
         if (isDocument) return (document as any).__layerPipEventMap
-        return this.__layerPipEventMap
+        return receiver.__layerPipEventMap
       }
 
       try {
@@ -46,19 +57,19 @@ function main() {
           ;(document as any).__layerPipEventMap = getEventMap() || {}
           ;(document as any).__layerPipEventMap[key] = getEventMap()[key] || []
         } else {
-          this.__layerPipEventMap = getEventMap() || {}
-          this.__layerPipEventMap[key] = getEventMap()[key] || []
+          receiver.__layerPipEventMap = getEventMap() || {}
+          receiver.__layerPipEventMap[key] = getEventMap()[key] || []
         }
       } catch (error) {
         console.error(error, tar)
       }
 
-      let eventList = getEventMap()?.[key] as any[]
+      let eventList = (getEventMap()?.[key] ?? []) as any[]
       let event = key
       try {
         // 判断监听触发事件
-        let onEventMatch = Object.entries(onEventAddMap).find(
-          ([key, val]) => isDocOrWin(key) || (tar as any).matches?.(key),
+        let onEventMatch = Object.entries(onEventAddMap).find(([key]) =>
+          matches(key),
         )
         if (onEventMatch && onEventMatch[1].includes(event)) {
           sendMessage_inject('event-hacker:onEventAdd', {
@@ -67,14 +78,14 @@ function main() {
           })
         }
 
-        let disableMatch = Object.entries(disableMap).find(
-          ([key, val]) => isDocOrWin(key) || this.matches?.(key),
+        let disableMatch = Object.entries(disableMap).find(([key]) =>
+          matches(key),
         )
         // 判断是否禁用
         if (disableMatch && disableMatch[1].includes(event)) {
           console.log('匹配到禁用query', disableMap, tar)
         } else {
-          var rs = originalAdd.call(this, key, fn, state)
+          var rs = originalAdd.call(receiver, key, fn, state)
         }
         const addEvent = {
           fn,
@@ -97,15 +108,16 @@ function main() {
       fn: () => void,
       state: any,
     ) {
+      const receiver = this ?? (isWindow ? window : tar)
       const getEventMap = () => {
         if (isWindow) return window.__layerPipEventMap
         if (isDocument) return (document as any).__layerPipEventMap
-        return this.__layerPipEventMap
+        return receiver.__layerPipEventMap
       }
 
       try {
         const eventList = getEventMap()?.[key] ?? []
-        var rs = originalRemove.call(this, key, fn, state)
+        var rs = originalRemove.call(receiver, key, fn, state)
         const index = eventList.findIndex(
           (ev: any) => ev.fn === fn && ev.state === state,
         )
@@ -124,9 +136,18 @@ function main() {
     }
   }
 
-  const domEv = injectEventListener(HTMLElement.prototype)
+  // Bilibili only uses the document visibility guard. Leave its window and
+  // element event APIs untouched so unrelated player/site code retains native semantics.
+  const isBilibili = location.hostname === 'www.bilibili.com'
+  const originals = (target: typeof window | HTMLElement) => ({
+    originalAdd: target.addEventListener,
+    originalRemove: target.removeEventListener,
+  })
+  const domEv = isBilibili
+    ? originals(HTMLElement.prototype)
+    : injectEventListener(HTMLElement.prototype)
   const docEv = injectEventListener(document)
-  const winEv = injectEventListener(window)
+  const winEv = isBilibili ? originals(window) : injectEventListener(window)
 
   onMessage_inject('event-hacker:disable', ({ qs, event }) => {
     console.log('开始禁用事件', qs, event)

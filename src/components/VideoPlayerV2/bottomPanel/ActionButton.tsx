@@ -7,12 +7,14 @@ type Props = {
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'>
 
 const ActionButton: FC<Props> = (props) => {
-  const { isUnActive, className, children, ...buttonProps } = props
+  const { isUnActive, className, children, title, ...buttonProps } = props
 
   return (
     <button
       {...buttonProps}
       type="button"
+      data-tooltip={title}
+      aria-label={buttonProps['aria-label'] ?? title}
       className={classNames(
         'fc-action-button',
         isUnActive && 'is-unactive',

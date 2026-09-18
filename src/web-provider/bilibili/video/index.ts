@@ -1,4 +1,4 @@
-import { WebProvider } from '@root/core/WebProvider'
+import type { WebProvider } from '@root/core/WebProvider'
 import onRouteChange from '@root/inject/csUtils/onRouteChange'
 import DanmakuSender from '@root/core/danmaku/DanmakuSender'
 import { dq, dq1, switchLatest, tryCatch } from '@root/utils'
@@ -8,7 +8,10 @@ import API_bilibili from '@root/api/bilibili'
 import { t } from '@root/utils/i18n'
 import { getVideoInfoFromUrl } from '@pkgs/danmakuGetter/apiDanmaku/bilibili/BilibiliVideo'
 import toast from 'react-hot-toast'
+import { createElement } from 'react'
+import { addonRecovery } from '@root/core/AddonRecovery'
 import { sendMessage } from '@root/inject/contentSender'
+import { onSubtitleSourceChange } from '@root/core/SubtitleSource/repository'
 import { getDanmakus } from '../utils'
 import BiliBiliPreviewManager from './PreviewManager'
 import BilibiliSubtitleManager from './SubtitleManager'
@@ -26,18 +29,25 @@ type RecommendVideo = {
   danmaku: number
 }
 
-export default class BilibiliVideoProvider extends WebProvider {
-  override onInit(): void {
-    this.subtitleManager = new BilibiliSubtitleManager()
+export default class BilibiliVideoProvider {
+  constructor(private player: WebProvider) {}
+  onInit(): void {
+    this.player.subtitleManager = new BilibiliSubtitleManager()
+    this.player.addOnUnloadFn(
+      onSubtitleSourceChange(() => {
+        if (this.player.active)
+          void this.player.subtitleManager.init(this.player.webVideo)
+      }),
+    )
     // danmakuSender
-    this.danmakuSender = new DanmakuSender()
-    this.danmakuSender.setData({
+    this.player.danmakuSender = new DanmakuSender()
+    this.player.danmakuSender.setData({
       webTextInput: dq1<HTMLInputElement>('.bpx-player-dm-input'),
       webSendButton: dq1<HTMLElement>('.bpx-player-dm-btn-send'),
     })
     // sideSwitcher
-    this.sideSwitcher = new SideSwitcher()
-    this.videoPreviewManager = new BiliBiliPreviewManager()
+    this.player.sideSwitcher = new SideSwitcher()
+    this.player.videoPreviewManager = new BiliBiliPreviewManager()
 
     sendMessage('event-hacker:disable', {
       qs: 'document',
@@ -47,30 +57,35 @@ export default class BilibiliVideoProvider extends WebProvider {
 
   private lastAid = ''
   private lastCid = ''
+  private updateGeneration = 0
 
-  override async onPlayerInitd() {
-    this.update()
+  async onPlayerInitd() {
+    this.update(false)
 
-    this.addOnUnloadFn(
+    this.player.addOnUnloadFn(
       onRouteChange(() => {
         this.update()
       }),
     )
   }
 
-  override onUnload(): void {
-    super.onUnload()
+  onUnload(): void {
+    this.updateGeneration++
     sendMessage('event-hacker:enable', {
       qs: 'document',
       event: 'visibilitychange',
     })
   }
 
-  update() {
-    this.initDanmakus()
-    this.subtitleManager.init(this.webVideo)
-    this.initSideSwitcherData()
-    this.videoPreviewManager?.init(this.webVideo)
+  update(resetRecovery = true) {
+    this.updateGeneration++
+    if (resetRecovery) this.player.refreshRecovery()
+    // Invalidate already displayed data as well as late network responses.
+    this.player.danmakuEngine?.resetState()
+    void this.initDanmakus()
+    void this.player.subtitleManager.init(this.player.webVideo)
+    void this.initSideSwitcherData().catch(console.warn)
+    this.player.videoPreviewManager?.init(this.player.webVideo)
   }
 
   getDanmakus = switchLatest(async () => {
@@ -79,19 +94,61 @@ export default class BilibiliVideoProvider extends WebProvider {
     const danmakus = await getDanmakus(aid, cid)
     return danmakus
   })
+  retryDanmaku() {
+    return this.initDanmakus()
+  }
+
   async initDanmakus() {
-    const [err, danmakus] = await tryCatch(() => this.getDanmakus())
+    const generation = this.updateGeneration
+    addonRecovery.report(this.player.webVideo, 'danmaku', '')
+    const [err] = await tryCatch(async () => {
+      const danmakus = await this.getDanmakus()
+      if (!this.player.active || generation !== this.updateGeneration) return
+      const engine = this.player.danmakuEngine
+      if (!engine) throw new Error('弹幕引擎不可用')
+      // React commits the Document PiP renderer asynchronously. A cached
+      // response can arrive first; retain it until the renderer is ready.
+      await engine.initLock.waiting()
+      if (
+        !this.player.active ||
+        generation !== this.updateGeneration ||
+        engine !== this.player.danmakuEngine
+      )
+        return
+      await engine.setDanmakus(danmakus)
+    })
+    if (!this.player.active || generation !== this.updateGeneration) return
 
     if (err) {
-      toast.error(t('error.danmakuLoad'))
-    } else {
-      this.danmakuEngine?.setDanmakus(danmakus)
+      addonRecovery.report(this.player.webVideo, 'danmaku', err)
+      toast(
+        (notification) =>
+          createElement(
+            'button',
+            {
+              type: 'button',
+              style: {
+                color: 'inherit',
+                background: 'transparent',
+                border: 0,
+                cursor: 'pointer',
+              },
+              onClick: () => {
+                toast.dismiss(notification.id)
+                if (this.player.active && generation === this.updateGeneration)
+                  void this.initDanmakus()
+              },
+            },
+            `${t('error.danmakuLoad')} · 点击重试弹幕`,
+          ),
+        { duration: 8000 },
+      )
     }
   }
 
   // ! 已知他用的top，目前没有iframe跳转方案了；需要切换成video url方案了https://github.com/SocialSisterYi/bilibili-API-collect/blob/master/docs/video/videostream_url.md
   async initSideSwitcherData() {
-    if (!this.sideSwitcher) {
+    if (!this.player.sideSwitcher) {
       console.error('已经被unload了', this)
       throw Error('已经被unload了')
     }
@@ -184,7 +241,11 @@ export default class BilibiliVideoProvider extends WebProvider {
       return recommendVideos
     }
 
-    this.sideSwitcher.init([
+    const recommendations = await getRecommendVideos().catch(
+      () => [] as RecommendVideo[],
+    )
+    if (!this.player.active) return
+    this.player.sideSwitcher.init([
       {
         category: t('vp.playList'),
         items: videoPItems,
@@ -192,7 +253,7 @@ export default class BilibiliVideoProvider extends WebProvider {
       },
       {
         category: t('vp.recommendedList'),
-        items: (await getRecommendVideos()).map((v) => ({ ...v, id: v.bvid })),
+        items: recommendations.map((v) => ({ ...v, id: v.bvid })),
       },
     ])
   }

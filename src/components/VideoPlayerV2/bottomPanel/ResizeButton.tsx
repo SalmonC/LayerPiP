@@ -17,6 +17,7 @@ const ResizeButton: FC = () => {
     if (!webVideo) return
     const pipWindow = window.documentPictureInPicture.window
 
+    if (!pipWindow || !webVideo.videoWidth || !webVideo.videoHeight) return
     const vw = webVideo.videoWidth,
       vh = webVideo.videoHeight
 
@@ -41,7 +42,7 @@ const ResizeButton: FC = () => {
 
   if (!isDocPIP(videoPlayerRef.current)) return
   return (
-    <ActionButton onClick={handleResize}>
+    <ActionButton aria-label="适配窗口" title="适配窗口（R）" onClick={handleResize}>
       <ShrinkOutlined />
     </ActionButton>
   )

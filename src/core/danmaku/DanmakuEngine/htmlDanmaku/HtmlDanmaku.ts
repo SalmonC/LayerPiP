@@ -13,8 +13,16 @@ export default class HtmlDanmaku extends DanmakuBase {
   // imageLength = 0
   allImageWidth = 0
   onlyImage = false
+  private sourceText?: string
 
   override onInit(props: DanmakuInitProps): void {
+    // Reflow can initialize the same comment repeatedly. Preserve image tokens
+    // and restart measurements instead of progressively stripping the source.
+    this.sourceText ??= this.text
+    this.text = this.sourceText
+    this.allImageWidth = 0
+    this.onlyImage = false
+    this.disabled = false
     this.tunnel = this.danmakuEngine.tunnelManager.getTunnel(this)
     if (this.tunnel == -1) {
       this.disabled = true

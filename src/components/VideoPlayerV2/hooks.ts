@@ -1,39 +1,34 @@
 import { useContext, useEffect } from 'react'
-import { isDocPIP, minmax, ownerWindow } from '@root/utils'
+import { minmax } from '@root/utils'
 import configStore from '@root/store/config'
 import { PlayerEvent } from '@root/core/event'
+import { isInteractiveEvent } from '@root/core/KeyBinding'
+import { requestPlayback } from '@root/core/playbackRequest'
 import useTargetEventListener from '@root/hook/useTargetEventListener'
 import { Key, keyCodeToCode, keyToKeyCodeMap } from '@root/types/key'
 import { isFunction, isString } from 'lodash-es'
 import { useMemoizedFn } from 'ahooks'
+import toast from 'react-hot-toast'
 import vpContext from './context'
 
 export const useTogglePlayState = () => {
   const { webVideo, isLive } = useContext(vpContext)
 
   const togglePlayState = useMemoizedFn(async (type?: 'play' | 'pause') => {
-    if (!webVideo) return
-    // 第一次进来没有can-pause attr，忽略判断能否pause
-    const canPauseAttr = webVideo.getAttribute('can-pause')
-    const canPause = canPauseAttr ? canPauseAttr == 'true' : true
+    if (!webVideo) return false
+    if (type === 'play' && !webVideo.paused) return true
 
-    if ((!webVideo.paused || type === 'pause') && canPause && type !== 'play') {
+    if (type !== 'play' && (!webVideo.paused || type === 'pause')) {
       webVideo.pause()
+      return true
     } else {
-      webVideo.setAttribute('can-pause', 'false')
       if (webVideo.currentTime === webVideo.duration) {
         webVideo.currentTime = 0
       }
-      return webVideo
-        .play()
-        .then(() => {
-          webVideo.setAttribute('can-pause', 'true')
-          if (type === 'pause') webVideo.pause()
-        })
-        .catch((err) => {
-          console.error('播放出错', err)
-          throw err
-        })
+      const played = await requestPlayback(webVideo, (message) =>
+        toast.error(`无法播放：${message}`),
+      )
+      return played
     }
   })
 
@@ -50,7 +45,9 @@ export const useInWindowKeydown = () => {
     if (!keydownWindow) return
 
     const oneFrame = 1 / 60
+    let active = true
     let beforeLongPressSpeedModePlaybackRate: number = 1
+    let longPressSpeedModeActive = false
     const callbackFns = [
       eventBus.on2(PlayerEvent.command_rewind, () => {
         if (!webVideo) return
@@ -59,8 +56,10 @@ export const useInWindowKeydown = () => {
           minmax(webVideo.currentTime - 5, 0, webVideo.duration)
 
         if (webVideo.paused) {
-          togglePlayState('play').then(() => {
-            webVideo.currentTime = getNewTime()
+          const video = webVideo
+          togglePlayState('play').then((played) => {
+            if (!active || !played) return
+            video.currentTime = getNewTime()
             eventBus.emit(PlayerEvent.changeCurrentTimeByKeyboard)
           })
         } else {
@@ -75,8 +74,10 @@ export const useInWindowKeydown = () => {
           minmax(webVideo.currentTime + 5, 0, webVideo.duration)
 
         if (webVideo.paused) {
-          togglePlayState('play').then(() => {
-            webVideo.currentTime = getNewTime()
+          const video = webVideo
+          togglePlayState('play').then((played) => {
+            if (!active || !played) return
+            video.currentTime = getNewTime()
             eventBus.emit(PlayerEvent.changeCurrentTimeByKeyboard)
           })
         } else {
@@ -89,12 +90,14 @@ export const useInWindowKeydown = () => {
         if (isLive) return
         beforeLongPressSpeedModePlaybackRate = webVideo.playbackRate
         webVideo.playbackRate = configStore.playbackRate
+        longPressSpeedModeActive = true
         eventBus.emit(PlayerEvent.longTabPlaybackRate)
       }),
       eventBus.on2(PlayerEvent.command_pressSpeedMode_release, () => {
         if (!webVideo) return
         if (isLive) return
         webVideo.playbackRate = beforeLongPressSpeedModePlaybackRate
+        longPressSpeedModeActive = false
         eventBus.emit(PlayerEvent.longTabPlaybackRateEnd)
       }),
 
@@ -118,6 +121,12 @@ export const useInWindowKeydown = () => {
     ]
 
     return () => {
+      active = false
+      if (longPressSpeedModeActive && webVideo && !isLive) {
+        webVideo.playbackRate = beforeLongPressSpeedModePlaybackRate
+        eventBus.emit(PlayerEvent.longTabPlaybackRateEnd)
+        longPressSpeedModeActive = false
+      }
       callbackFns.forEach((fn) => fn())
     }
   }, [keydownWindow, isLive, webVideo])
@@ -136,16 +145,12 @@ export function useKeydown(
     if (!keydownWindow) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!webVideo) return
-      // TODO 以后尽量把e.target去掉，因为shadowRoot下接收到冒泡的event.target是shadowRoot，不会是keydown实际的target😅
-      // ? 或者搞个polyfill，支持shadowRoot的event通过一层转发。但会导致isTrusted:false
-      const tar = e.target as HTMLElement
-      if (
-        tar.tagName === 'TEXTAREA' ||
-        tar.tagName === 'INPUT' ||
-        tar.contentEditable === 'true'
-      )
-        return
-      let keyCode = e.keyCode
+      if (isInteractiveEvent(e)) return
+      const key = e.key?.length === 1 ? e.key.toUpperCase() : e.key
+      let keyCode =
+        e.keyCode ||
+        (keyToKeyCodeMap as any)[e.code] ||
+        (keyToKeyCodeMap as any)[key]
       if (isFunction(onKeydown)) {
         onKeydown((keyCodeToCode as any)[keyCode] as Key, e)
       }

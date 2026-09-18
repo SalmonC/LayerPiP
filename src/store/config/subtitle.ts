@@ -5,6 +5,17 @@ const category = t('settingPanel.subtitle')
 const config: typeof _config = (props) => ({ ...props, category })
 
 const config_subtitle = {
+  subtitle_historyEnabled: config({
+    label: '显示历史字幕',
+    defaultValue: true,
+  }),
+  subtitle_historyCount: config({
+    label: '历史字幕段数',
+    defaultValue: 2,
+    type: 'range',
+    range: [1, 5],
+    rangeStep: 1,
+  }),
   subtitle_opacity: config({
     label: t('settingPanel.subtitleOpacity'),
     defaultValue: 1,

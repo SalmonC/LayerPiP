@@ -2,7 +2,17 @@ import { CloseOutlined, ReloadOutlined } from '@ant-design/icons'
 import { observer } from 'mobx-react'
 import { FC, useEffect, useRef, useState } from 'react'
 import { PipMode } from '@root/types/config'
+import { addonRecovery, type AddonKind } from '@root/core/AddonRecovery'
 import NativeSubtitleSourceSettings from './NativeSubtitleSourceSettings'
+import AiSubtitleControls from './AiSubtitleControls'
+import { aiSubtitles } from '@root/core/AiSubtitle/controller'
+
+import {
+  RangeField,
+  SwitchField,
+  ChoiceField,
+  DanmakuFields,
+} from './PlayerSettingsFields'
 
 type SettingsValues = Record<string, any>
 
@@ -11,9 +21,10 @@ type Props = {
   onPatch: (patch: Record<string, unknown>) => void
   onReset: () => void
   onClose: () => void
+  initialTab?: Tab
 }
 
-type Tab = 'general' | 'subtitle' | 'danmaku' | 'shortcuts'
+export type Tab = 'general' | 'subtitle' | 'danmaku' | 'shortcuts'
 
 const tabs: Array<{ id: Tab; label: string }> = [
   { id: 'general', label: '播放' },
@@ -22,66 +33,54 @@ const tabs: Array<{ id: Tab; label: string }> = [
   { id: 'shortcuts', label: '快捷键' },
 ]
 
-const RangeField: FC<{
-  label: string
-  value: number
-  min: number
-  max: number
-  step?: number
-  suffix?: string
-  onChange: (value: number) => void
-}> = ({ label, value, min, max, step = 1, suffix = '', onChange }) => (
-  <label className="fc-setting-field">
-    <span>{label}</span>
-    <span className="fc-setting-value">
-      {value}
-      {suffix}
-    </span>
-    <input
-      type="range"
-      min={min}
-      max={max}
-      step={step}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  </label>
-)
-
-const SwitchField: FC<{
-  label: string
-  description: string
-  checked: boolean
-  onChange: (checked: boolean) => void
-}> = ({ label, description, checked, onChange }) => (
-  <label className="fc-setting-row">
-    <span>
-      <strong>{label}</strong>
-      <small>{description}</small>
-    </span>
-    <input
-      type="checkbox"
-      role="switch"
-      checked={checked}
-      onChange={(event) => onChange(event.target.checked)}
-    />
-  </label>
-)
-
 const shortcuts = [
   ['播放 / 暂停', 'Space'],
   ['快退 / 快进', '← / →'],
   ['逐帧后退 / 前进', 'Shift + ← / →'],
   ['音量', '↑ / ↓'],
   ['静音', 'M'],
+  ['自动适配宽高比', 'R'],
   ['字幕', 'S'],
   ['弹幕', 'D'],
   ['长按加速', '长按 →'],
 ]
 
+const RecoveryControl = observer(({ kind }: { kind: AddonKind }) => {
+  const label = kind === 'subtitle' ? '字幕' : '弹幕'
+  const error = addonRecovery.errors[kind]
+  if (!error && !addonRecovery.busy[kind]) return null
+  return (
+    <div className="fc-setting-group">
+      <div className="fc-setting-row">
+        <span>
+          <strong>{label}加载与显示</strong>
+          <small>
+            {addonRecovery.available
+              ? '重新加载此功能，视频继续播放'
+              : '打开小窗后可单独重新加载'}
+          </small>
+        </span>
+        <button
+          type="button"
+          className="fc-form-button"
+          disabled={!addonRecovery.available || addonRecovery.busy[kind]}
+          onClick={() => void addonRecovery.retry(kind)}
+        >
+          {addonRecovery.busy[kind] ? '正在重试…' : `重试${label}`}
+        </button>
+      </div>
+      {error && (
+        <p role="status" className="fc-form-status is-error">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+})
+
 const LayerPipSettings: FC<Props> = observer(
-  ({ values, onPatch, onReset, onClose }) => {
-    const [tab, setTab] = useState<Tab>('general')
+  ({ values, onPatch, onReset, onClose, initialTab = 'general' }) => {
+    const [tab, setTab] = useState<Tab>(initialTab)
     const closeRef = useRef<HTMLButtonElement>(null)
 
     useEffect(() => {
@@ -96,11 +95,30 @@ const LayerPipSettings: FC<Props> = observer(
           aria-modal="true"
           aria-labelledby="fc-settings-title"
           onMouseDown={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            event.stopPropagation()
+            if (event.key !== 'Tab') return
+            const controls = Array.from(
+              event.currentTarget.querySelectorAll<HTMLElement>(
+                'button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]',
+              ),
+            ).filter((el) => el.getClientRects().length)
+            const first = controls[0],
+              last = controls[controls.length - 1]
+            if (!first) return
+            if (event.shiftKey && event.target === first) {
+              event.preventDefault()
+              last.focus()
+            } else if (!event.shiftKey && event.target === last) {
+              event.preventDefault()
+              first.focus()
+            }
+          }}
         >
           <header className="fc-settings-header">
             <div>
-              <span className="fc-eyebrow">FLOATCAPTION</span>
-              <h2 id="fc-settings-title">叠映设置</h2>
+              <span className="fc-eyebrow">LayerPiP</span>
+              <h2 id="fc-settings-title">播放设置</h2>
             </div>
             <button
               ref={closeRef}
@@ -133,47 +151,28 @@ const LayerPipSettings: FC<Props> = observer(
               <div className="fc-settings-section">
                 <fieldset className="fc-setting-group">
                   <legend>小窗模式</legend>
-                  <div className="fc-segmented-control" aria-label="小窗模式">
-                    <button
-                      type="button"
-                      aria-pressed={values.pipMode === PipMode.document}
-                      className={
-                        values.pipMode === PipMode.document ? 'is-active' : ''
-                      }
-                      onClick={() =>
-                        onPatch({
-                          pipMode: PipMode.document,
-                          nativeCompositeOptIn: false,
-                        })
-                      }
-                    >
-                      <strong>增强小窗</strong>
-                      <small>完整控件与字幕菜单</small>
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={values.pipMode === PipMode.nativeComposite}
-                      className={
-                        values.pipMode === PipMode.nativeComposite
-                          ? 'is-active'
-                          : ''
-                      }
-                      onClick={() =>
-                        onPatch({
-                          pipMode: PipMode.nativeComposite,
-                          nativeCompositeOptIn: true,
-                        })
-                      }
-                    >
-                      <strong>Edge 原生小窗</strong>
-                      <small>合成视频、弹幕与字幕</small>
-                    </button>
-                  </div>
+                  <ChoiceField
+                    label="选择小窗"
+                    value={values.pipMode}
+                    options={[
+                      { value: PipMode.document, label: '增强小窗' },
+                      {
+                        value: PipMode.nativeComposite,
+                        label: 'Edge 原生小窗',
+                      },
+                    ]}
+                    onChange={(value) =>
+                      onPatch({
+                        pipMode: value,
+                        nativeCompositeOptIn: value === PipMode.nativeComposite,
+                      })
+                    }
+                  />
                   <p>切换后在下一次打开小窗时生效。</p>
                 </fieldset>
                 <SwitchField
                   label="显示网页浮动入口"
-                  description="在检测到视频时显示叠映按钮"
+                  description="在 B 站视频上打开小窗或调整字幕"
                   checked={values.floatButtonVisible}
                   onChange={(value) => onPatch({ floatButtonVisible: value })}
                 />
@@ -192,7 +191,7 @@ const LayerPipSettings: FC<Props> = observer(
                   }
                 />
                 <RangeField
-                  label="长按右键倍速"
+                  label="长按 → 倍速"
                   value={values.playbackRate}
                   min={1}
                   max={5}
@@ -200,30 +199,53 @@ const LayerPipSettings: FC<Props> = observer(
                   suffix="×"
                   onChange={(value) => onPatch({ playbackRate: value })}
                 />
-                <label className="fc-setting-row">
-                  <span>
-                    <strong>视频适配</strong>
-                    <small>控制视频在小窗中的宽高填充方式</small>
-                  </span>
-                  <select
-                    value={values.videoNoBorder}
-                    onChange={(event) =>
-                      onPatch({ videoNoBorder: event.target.value })
-                    }
-                  >
-                    <option value="default">保持比例</option>
-                    <option value="width">铺满宽度</option>
-                    <option value="height">铺满高度</option>
-                  </select>
-                </label>
+                <ChoiceField
+                  label="视频适配"
+                  value={values.videoNoBorder}
+                  options={[
+                    { value: 'default', label: '保持比例' },
+                    { value: 'width', label: '铺满宽度' },
+                    { value: 'height', label: '铺满高度' },
+                  ]}
+                  onChange={(value) => onPatch({ videoNoBorder: value })}
+                />
               </div>
             )}
 
             {tab === 'subtitle' && (
               <div className="fc-settings-section">
-                {values.pipMode === PipMode.nativeComposite && (
+                <SwitchField
+                  label="本地 AI 字幕"
+                  description="启用后，可在字幕菜单开始识别"
+                  checked={!!values.aiSubtitleEnabled}
+                  onChange={(value) => {
+                    aiSubtitles.setEnabled(value)
+                    onPatch({ aiSubtitleEnabled: value })
+                  }}
+                />
+                {!!values.aiSubtitleEnabled && <AiSubtitleControls details />}
+                <RecoveryControl kind="subtitle" />
+                <SwitchField
+                  label="历史字幕"
+                  description="在当前字幕上方补看之前的话，小窗底栏也可一键切换"
+                  checked={values.subtitle_historyEnabled ?? true}
+                  onChange={(value) =>
+                    onPatch({ subtitle_historyEnabled: value })
+                  }
+                />
+                <RangeField
+                  label="历史段数"
+                  value={values.subtitle_historyCount ?? 2}
+                  min={1}
+                  max={5}
+                  onChange={(value) =>
+                    onPatch({ subtitle_historyCount: value })
+                  }
+                />
+                <details className="fc-settings-details">
+                  <summary>字幕来源与视频关联</summary>
                   <NativeSubtitleSourceSettings />
-                )}
+                </details>
                 <RangeField
                   label="字号"
                   value={values.subtitle_fontSize}
@@ -233,20 +255,26 @@ const LayerPipSettings: FC<Props> = observer(
                   onChange={(value) => onPatch({ subtitle_fontSize: value })}
                 />
                 <RangeField
-                  label="字幕透明度"
-                  value={values.subtitle_opacity}
-                  min={0.2}
-                  max={1}
-                  step={0.05}
-                  onChange={(value) => onPatch({ subtitle_opacity: value })}
+                  label="字幕不透明度"
+                  value={Math.round(values.subtitle_opacity * 100)}
+                  min={20}
+                  max={100}
+                  step={5}
+                  suffix="%"
+                  onChange={(value) =>
+                    onPatch({ subtitle_opacity: value / 100 })
+                  }
                 />
                 <RangeField
-                  label="背景透明度"
-                  value={values.subtitle_bgOpacity}
+                  label="背景不透明度"
+                  value={Math.round(values.subtitle_bgOpacity * 100)}
                   min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(value) => onPatch({ subtitle_bgOpacity: value })}
+                  max={100}
+                  step={5}
+                  suffix="%"
+                  onChange={(value) =>
+                    onPatch({ subtitle_bgOpacity: value / 100 })
+                  }
                 />
                 <label className="fc-setting-row">
                   <span>
@@ -266,46 +294,8 @@ const LayerPipSettings: FC<Props> = observer(
 
             {tab === 'danmaku' && (
               <div className="fc-settings-section">
-                <RangeField
-                  label="字号"
-                  value={values.fontSize}
-                  min={12}
-                  max={32}
-                  suffix="px"
-                  onChange={(value) => onPatch({ fontSize: value })}
-                />
-                <RangeField
-                  label="透明度"
-                  value={values.opacity}
-                  min={0.2}
-                  max={1}
-                  step={0.05}
-                  onChange={(value) => onPatch({ opacity: value })}
-                />
-                <RangeField
-                  label="滚动速度"
-                  value={values.danSpeed}
-                  min={5}
-                  max={40}
-                  suffix="s"
-                  onChange={(value) => onPatch({ danSpeed: value })}
-                />
-                <label className="fc-setting-row">
-                  <span>
-                    <strong>屏幕占用</strong>
-                    <small>限制弹幕覆盖画面的高度</small>
-                  </span>
-                  <select
-                    value={values.maxTunnel}
-                    onChange={(event) =>
-                      onPatch({ maxTunnel: event.target.value })
-                    }
-                  >
-                    <option value="1/4">顶部四分之一</option>
-                    <option value="1/2">顶部二分之一</option>
-                    <option value="full">全屏</option>
-                  </select>
-                </label>
+                <RecoveryControl kind="danmaku" />
+                <DanmakuFields values={values} onPatch={onPatch} />
               </div>
             )}
 
@@ -330,7 +320,6 @@ const LayerPipSettings: FC<Props> = observer(
             >
               <ReloadOutlined /> 恢复安全默认
             </button>
-            <span>基于 dmMiniPlayer · 仅限非商业使用</span>
           </footer>
         </section>
       </div>

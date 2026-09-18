@@ -3,8 +3,6 @@ import {
   CloseOutlined,
   FullscreenExitOutlined,
   FullscreenOutlined,
-  QuestionCircleFilled,
-  SettingOutlined,
   ShrinkOutlined,
 } from '@ant-design/icons'
 import { PlayerEvent } from '@root/core/event'
@@ -38,9 +36,10 @@ import VideoPlayerSide from '../VideoPlayer/Side'
 import SubtitleSelection from '../VideoPlayer/subtitle/SubtitleSelection'
 import SubtitleText from '../VideoPlayer/subtitle/SubtitleText'
 import ActionButton from './bottomPanel/ActionButton'
+import SubtitleHistoryButton from './bottomPanel/SubtitleHistoryButton'
 import CurrentTimeTooltipsWithKeydown from './bottomPanel/CurrentTimeTooltipsWithKeydown'
 import DanmakuSettingBtn from './bottomPanel/DanmakuSettingBtn'
-import SharpeningButton from './bottomPanel/SharpeningButton'
+import PlayerSettingsMenu from './bottomPanel/PlayerSettingsMenu'
 import PlaybackRateSelection from './bottomPanel/PlaybackRateSelection'
 import PlayedTime from './bottomPanel/PlayedTime'
 import PlayerProgressBar from './bottomPanel/PlayerProgressBar'
@@ -52,6 +51,7 @@ import {
 import VolumeBar from './bottomPanel/VolumeBar'
 import vpContext, { ContextData, defaultVpContext } from './context'
 import DanmakuContainer from './DanmakuContainer'
+import AddonBoundary from './AddonBoundary'
 import EventCenter from './EventCenter'
 import {
   useInWindowKeydown,
@@ -66,10 +66,12 @@ import SpeedIcon from './SpeedIcon'
 import Toast from './Toast'
 import VolumeIcon from './VolumeIcon'
 import ResizeButton from './bottomPanel/ResizeButton'
+import { shouldReturnFocusToPlayer } from './playerFocus'
 
 export type VideoPlayerHandle = {
   setCurrentTime: (time: number, pause?: boolean) => void
   togglePlayState: ReturnType<typeof useTogglePlayState>
+  refreshInputWindow: () => void
   updateVideo: (video: HTMLVideoElement) => void
   updateVideoStream: (videoStream: MediaStream) => void
   ref: React.RefObject<HTMLVideoElement | null>
@@ -322,6 +324,25 @@ const VideoPlayerV2Inner = observer(
       if (!inVpVideoRef.current) return
       inVpVideoRef.current.srcObject = stream
     })
+    const handlePlayerPointerUp = useMemoizedFn(
+      (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!shouldReturnFocusToPlayer(event.target)) return
+        // Pointer activation should return focus to the player so the next
+        // Arrow/Space command reaches the player. Keyboard focus keeps the
+        // button's native Space/Enter behavior.
+        videoPlayerRef.current?.focus()
+      },
+    )
+    const refreshInputWindow = useMemoizedFn(() => {
+      const inputOwner = props.useWebVideo
+        ? ownerWindow(videoRef.current)
+        : ownerWindow(videoPlayerRef.current)
+      props.setContext((context) =>
+        context.keydownWindow === inputOwner
+          ? context
+          : { ...context, keydownWindow: inputOwner },
+      )
+    })
     const updateVideo = useMemoizedFn((video: HTMLVideoElement) => {
       if (videoRef.current && videoPlayerRef.current && props.useWebVideo) {
         const videoInVp = hasParent(videoRef.current, videoPlayerRef.current)
@@ -338,6 +359,7 @@ const VideoPlayerV2Inner = observer(
       return {
         setCurrentTime,
         togglePlayState,
+        refreshInputWindow,
         updateVideo,
         updateVideoStream,
         ref: videoRef,
@@ -363,11 +385,12 @@ const VideoPlayerV2Inner = observer(
           configStore.vpActionAreaLock && ACTION_AREA_ACTIVE,
         )}
         style={{
-          '--area-height': '48px',
+          '--area-height': '40px',
           '--btn-size': '120px',
           '--side-width': configStore.sideWidth + 'px',
         }}
         ref={videoPlayerRef}
+        onPointerUp={handlePlayerPointerUp}
         onMouseLeave={() => {
           handleChangeActionArea(false)
         }}
@@ -444,68 +467,45 @@ const VideoPlayerV2Inner = observer(
           </div>
 
           <div className="absolute bottom-[calc(100%+12px)] w-full pointer-events-none">
-            <SubtitleText subtitleManager={subtitleManager} />
+            <AddonBoundary kind="subtitle">
+              <SubtitleText subtitleManager={subtitleManager} />
+            </AddonBoundary>
           </div>
 
           {!isLive && <PlayerProgressBar />}
 
           <div className="action-controls opacity-0 group-[&.active]:opacity-100 transition-opacity duration-fc-fast ease-out">
             <div className="mask w-full h-[calc(var(--area-height)+24px)] absolute bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent z-[1]"></div>
-            <div className="actions text-fc-text px-4 py-2 f-i-center relative z-[6] gap-2 h-area-height">
-              {configStore.bp_preVideo && (
-                <div className="fc-narrow-hide -mr-2">
-                  <ChangePreVideoButton />
+            <div className="actions fc-player-controls relative z-[6]">
+              <div className="fc-controls-left">
+                {configStore.bp_playToggle && <TogglePlayActionButton />}
+                <div className="fc-secondary-controls">
+                  {configStore.bp_preVideo && <ChangePreVideoButton />}
+                  {configStore.bp_nextVideo && <ChangeNextVideoButton />}
                 </div>
-              )}
-              {configStore.bp_playToggle && <TogglePlayActionButton />}
-              {configStore.bp_nextVideo && (
-                <div className="fc-narrow-hide -ml-2">
-                  <ChangeNextVideoButton />
+                <div className="fc-played-time">
+                  <PlayedTime />
                 </div>
-              )}
-
-              <div className="fc-narrow-hide text-[12px] tabular-nums text-fc-text-muted">
-                <PlayedTime />
               </div>
-
-              <div className="f-i-center gap-1">
+              <div className="fc-controls-right">
+                {configStore.bp_danmaku && <DanmakuSettingBtn />}
                 {configStore.bp_subtitle && (
                   <SubtitleSelection subtitleManager={subtitleManager} />
                 )}
-
-                {configStore.bp_danmaku && <DanmakuSettingBtn />}
-
+                <div className="fc-secondary-controls">
+                  {!isLive && <SubtitleHistoryButton />}
+                </div>
                 {configStore.bp_playbackRate && <PlaybackRateSelection />}
-
-                {configStore.bp_sharpening && <SharpeningButton />}
-
-                <ActionButton
-                  aria-label="打开设置"
-                  title="打开设置"
-                  onClick={handleOpenSetting}
-                  className="fc-narrow-hide mb:hidden"
-                >
-                  <SettingOutlined className="block" />
-                </ActionButton>
-              </div>
-
-              <div className="right ml-auto f-i-center gap-1">
+                {configStore.bp_volume && <VolumeBar />}
+                <PlayerSettingsMenu
+                  onSettings={handleOpenSetting}
+                  onShortcuts={keyboardTipsModal.openModal}
+                />
                 {configStore.bp_resize && (
-                  <div className="fc-narrow-hide">
+                  <div className="fc-secondary-controls">
                     <ResizeButton />
                   </div>
                 )}
-                {configStore.keyboardTips_show && (
-                  <ActionButton
-                    aria-label="Keyboard shortcuts"
-                    title="Keyboard shortcuts"
-                    className="fc-narrow-hide"
-                    onClick={keyboardTipsModal.openModal}
-                  >
-                    <QuestionCircleFilled />
-                  </ActionButton>
-                )}
-                {configStore.bp_volume && <VolumeBar />}
                 {props.isReplacerMode && (
                   <>
                     <ActionButton
@@ -542,7 +542,9 @@ const VideoPlayerV2Inner = observer(
           </div>
         </div>
 
-        <DanmakuContainer />
+        <AddonBoundary kind="danmaku">
+          <DanmakuContainer />
+        </AddonBoundary>
         <div className="group-[&.active]:opacity-0 transition-opacity duration-fc-fast">
           <CurrentTimeTooltipsWithKeydown />
         </div>

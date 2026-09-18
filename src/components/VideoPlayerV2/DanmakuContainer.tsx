@@ -1,5 +1,5 @@
-import { FC, memo, useContext, useRef, useState } from 'react'
-import { useOnce } from '@root/hook'
+import { FC, useContext, useEffect, useRef } from 'react'
+import { addonRecovery } from '@root/core/AddonRecovery'
 import { createElement } from '@root/utils'
 import vpContext from './context'
 
@@ -16,16 +16,23 @@ const _danmakuContainer = createElement('div', {
 })
 
 const DanmakuContainer: FC = (props) => {
-  const { webVideo, isLive, danmakuEngine, videoPlayer } = useContext(vpContext)
+  const { webVideo, danmakuEngine } = useContext(vpContext)
   const danmakuContainer = useRef<HTMLDivElement>(null)
-  useOnce(() => {
+  useEffect(() => {
     if (!danmakuEngine || !danmakuContainer.current || !webVideo) return
-    danmakuEngine.init({
-      media: webVideo,
-      container: _danmakuContainer,
-    })
+    // Attach before measuring/initializing, including after a delayed video bind.
     danmakuContainer.current.appendChild(_danmakuContainer)
-  })
+    try {
+      danmakuEngine.init({ media: webVideo, container: _danmakuContainer })
+    } catch (error) {
+      try {
+        danmakuEngine.unload()
+      } catch (cleanupError) {
+        console.warn(cleanupError)
+      }
+      addonRecovery.report(webVideo, 'danmaku', error)
+    }
+  }, [danmakuEngine, webVideo])
 
   if (!danmakuEngine) return null
 

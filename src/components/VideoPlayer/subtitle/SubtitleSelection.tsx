@@ -1,10 +1,12 @@
 import {
   CheckOutlined,
   FileAddOutlined,
-  LinkOutlined,
   LoadingOutlined,
 } from '@ant-design/icons'
+import configStore, { updateConfig, openSettingPanel } from '@root/store/config'
+import { SwitchField, RangeField } from '../../PlayerSettingsFields'
 import Dropdown from '@root/components/Dropdown'
+import AiSubtitleControls from '@root/components/AiSubtitleControls'
 import FileDropper from '@root/components/FileDropper'
 import Iconfont from '@root/components/Iconfont'
 import ActionButton from '@root/components/VideoPlayerV2/bottomPanel/ActionButton'
@@ -25,7 +27,6 @@ type Props = {
 }
 const SubtitleSelectionInner: FC<Props> = observer((props) => {
   const { subtitleManager } = props
-  const activeLabel = subtitleManager.activeSubtitleLabel
   const { eventBus, videoPlayerRef } = useContext(vpContext)
 
   const handleChangeVisible = useMemoizedFn(() => {
@@ -51,7 +52,8 @@ const SubtitleSelectionInner: FC<Props> = observer((props) => {
 
   return (
     <Dropdown
-      menuRender={() => <Menu {...props} />}
+      playerMenu
+      menuRender={(close) => <Menu {...props} close={close} />}
       getPopupContainer={(node) =>
         videoPlayerRef.current || node.ownerDocument.body!
       }
@@ -61,7 +63,6 @@ const SubtitleSelectionInner: FC<Props> = observer((props) => {
         aria-label="字幕"
         aria-pressed={subtitleManager.showSubtitle}
         title="字幕"
-        onClick={handleChangeVisible}
       >
         <Iconfont type="subtitle" size={18} />
       </ActionButton>
@@ -69,10 +70,11 @@ const SubtitleSelectionInner: FC<Props> = observer((props) => {
   )
 })
 
-const Menu: FC<Props> = observer((props) => {
+const Menu: FC<Props & { close: () => void }> = observer((props) => {
   const { subtitleManager } = props
   const activeLabel = subtitleManager.activeSubtitleLabel
   const [showNetworkLoader, setShowNetworkLoader] = useState(false)
+  const { videoPlayerRef } = useContext(vpContext)
   return (
     <div
       className={classNames(
@@ -80,53 +82,109 @@ const Menu: FC<Props> = observer((props) => {
         showNetworkLoader && 'is-expanded',
       )}
     >
-      <p className="fc-menu-heading">字幕来源</p>
-      <label className="fc-menu-action">
-        <FileAddOutlined />
-        <span>{t('vp.addNewSubtitle')}</span>
-        <input
-          className="fc-file-input"
-          type="file"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (!file) return
-            subtitleManager.addFileSubtitle(file)
-          }}
-          accept=".srt, .ass"
-        />
-      </label>
-      <button
-        type="button"
-        className="fc-menu-action"
-        aria-expanded={showNetworkLoader}
-        onClick={() => setShowNetworkLoader((value) => !value)}
-      >
-        <LinkOutlined />
-        <span>{t('vp.addNetworkSubtitle')}</span>
-      </button>
-      {showNetworkLoader && (
-        <NetworkSubtitleLoader subtitleManager={subtitleManager} />
-      )}
-      {!!subtitleManager.subtitleItems.length && (
-        <p className="fc-menu-heading">可用字幕</p>
-      )}
-      {subtitleManager.subtitleItems.map((subtitleItem, i) => (
-        <button
-          type="button"
-          key={`${subtitleItem.value}-${i}`}
-          className={classNames(
-            'fc-menu-item',
-            activeLabel === subtitleItem.label && 'is-active',
+      {showNetworkLoader ? (
+        <>
+          <button
+            type="button"
+            className="fc-menu-item"
+            onClick={() => setShowNetworkLoader(false)}
+          >
+            ‹ 返回字幕
+          </button>
+          <NetworkSubtitleLoader subtitleManager={subtitleManager} />
+        </>
+      ) : (
+        <>
+          <SwitchField
+            label="显示字幕"
+            checked={subtitleManager.showSubtitle}
+            onChange={(value) => {
+              if (
+                value &&
+                !subtitleManager.activeSubtitleLabel &&
+                subtitleManager.subtitleItems.length
+              ) {
+                subtitleManager.useSubtitle(
+                  subtitleManager.subtitleItems[0].label,
+                )
+              }
+              subtitleManager.showSubtitle = value
+            }}
+          />
+          <AiSubtitleControls />
+          {!subtitleManager.subtitleItems.length && (
+            <p className="fc-menu-empty">暂无可用字幕，可导入或关联视频</p>
           )}
-          onClick={() => {
-            subtitleManager.useSubtitle(subtitleItem.label)
-            subtitleManager.showSubtitle = true
-          }}
-        >
-          {activeLabel === subtitleItem.label && <CheckOutlined />}
-          {subtitleItem.label}
-        </button>
-      ))}
+          {subtitleManager.subtitleItems.map((subtitleItem, i) => (
+            <button
+              type="button"
+              key={`${subtitleItem.value}-${i}`}
+              className={classNames(
+                'fc-menu-item',
+                activeLabel === subtitleItem.label && 'is-active',
+              )}
+              onClick={() => {
+                subtitleManager.useSubtitle(subtitleItem.label)
+                subtitleManager.showSubtitle = true
+                props.close()
+              }}
+            >
+              {activeLabel === subtitleItem.label && <CheckOutlined />}
+              {subtitleItem.label}
+            </button>
+          ))}
+          <div className="fc-menu-divider" />
+          <SwitchField
+            label="历史字幕"
+            checked={configStore.subtitle_historyEnabled}
+            onChange={(value) => {
+              void updateConfig({ subtitle_historyEnabled: value }, true)
+            }}
+          />
+          <RangeField
+            label="历史段数"
+            value={configStore.subtitle_historyCount}
+            min={1}
+            max={5}
+            onChange={(value) => {
+              void updateConfig({ subtitle_historyCount: value }, true)
+            }}
+          />
+          <label className="fc-menu-action">
+            <FileAddOutlined />
+            <span>导入字幕文件</span>
+            <input
+              className="fc-file-input"
+              type="file"
+              accept=".srt,.ass"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) subtitleManager.addFileSubtitle(file)
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className="fc-menu-item"
+            onClick={() => setShowNetworkLoader(true)}
+          >
+            临时导入链接 <span>›</span>
+          </button>
+          <button
+            type="button"
+            className="fc-menu-item"
+            onClick={() => {
+              props.close()
+              openSettingPanel({
+                renderTarget: videoPlayerRef.current ?? undefined,
+                category: 'subtitle',
+              })
+            }}
+          >
+            字幕设置与视频关联 <span>›</span>
+          </button>
+        </>
+      )}
     </div>
   )
 })
@@ -166,6 +224,8 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
   })
 
   const importTrack = useMemoizedFn(async () => {
+    if (probe?.parts.length && Number(selectedPart) !== probe.selectedPart)
+      return setError('请先读取所选分P的字幕轨道')
     const track = probe?.tracks.find((item) => item.value === selectedTrack)
     if (!track) return setError(t('vp.selectSubtitleTrack'))
     const offsetNumber = Number(offset)
@@ -230,7 +290,7 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
           )}
         </button>
       )}
-      {probe?.needsPartSelection && (
+      {probe && probe.parts.length > 1 && (
         <>
           <label>
             <span>{t('vp.selectSubtitlePart')}</span>
@@ -289,6 +349,11 @@ const NetworkSubtitleLoader: FC<Props> = (props) => {
             )}
           </button>
         </>
+      )}
+      {probe && !probe.tracks.length && !loading && (
+        <p className="fc-form-status" role="status">
+          P{probe.selectedPart} 暂无字幕，可选择其他分P
+        </p>
       )}
       {loadedLabel && (
         <p className="fc-form-status is-success" role="status">

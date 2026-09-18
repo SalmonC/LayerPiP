@@ -1,179 +1,184 @@
 .video-player-v2 {
-    .bottom-progress {
-        position: fixed;
-        bottom: 0;
-        opacity: 0;
-        transition: opacity 0.2s;
-        left: 0;
+  .bottom-progress {
+    position: fixed;
+    inset: auto 0 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 1;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    span {
+      position: absolute;
+      inset: 0;
+      background: var(--progress-color, #00a1d6);
+      transform-origin: left center;
     }
-
-    &:not(.active) {
-        .played-progress-bar.use-bottom-progress {
-            height: var(--bottom-progress-height);
-            left: 0;
-            // bottom: calc(var(--bottom-progress-height) + 100% + 5px);
-            // bottom: initial;
-            top: calc(var(--bottom-progress-height));
-            width: 100%;
-            border-radius: 0;
-
-            .rc-slider {
-                --load-color: var(--bottom-progress-color) !important;
-            }
-        }
-
-        .bottom-progress {
-            opacity: 1;
-        }
+  }
+  &:has(.played-progress-bar.is-seeking) .video-action-area {
+    bottom: 0 !important;
+  }
+  &:has(.played-progress-bar.is-seeking) .action-controls {
+    opacity: 1 !important;
+  }
+  &:has(.played-progress-bar.is-seeking) .bottom-progress,
+  &.active .bottom-progress,
+  &[data-menu-open] .bottom-progress,
+  &:has(.video-action-area :focus-visible) .bottom-progress {
+    opacity: 0;
+  }
+  .played-progress-bar {
+    --progress-scale: 1;
+    position: absolute;
+    top: -12px;
+    left: 12px;
+    width: calc(100% - 24px);
+    height: 20px;
+    z-index: 7;
+    cursor: pointer;
+    // Preserve a stable hit area; only the visual track expands.
+    &:hover,
+    &:has(.rc-slider-handle:focus-visible),
+    &.is-seeking {
+      --progress-scale: 1.5;
     }
-
-    .played-progress-bar {
-        transition-property: width, height, left, bottom, top;
-        transition-duration: 0.2s;
-        transition-delay: 0.3s;
-        z-index: 7;
-        height: 16px;
-        flex: 1;
-        border-radius: 4px;
-        --progress-track-height: 3px;
-        --progress-handle-size: 12px;
-        --offset: 38px;
-        width: calc(100% - var(--offset));
-        flex: none;
+    .progress-bar {
+      height: 100% !important;
+      padding: 0;
+      background: transparent;
+      border-radius: 0;
+    }
+    .rc-slider-rail,
+    .rc-slider-track,
+    .fc-progress-buffer {
+      position: absolute;
+      top: 50%;
+      height: 4px;
+      border-radius: 1.5px;
+      transform: translateY(-50%) scaleY(var(--progress-scale));
+      transition: transform 0.1s cubic-bezier(0, 0, 0.2, 1);
+      pointer-events: none;
+    }
+    .rc-slider-rail {
+      width: 100%;
+      z-index: 0;
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .rc-slider-track {
+      z-index: 2;
+      background: var(--progress-color, #00a1d6) !important;
+    }
+    .rc-slider-step {
+      display: none;
+    }
+    .fc-progress-buffer {
+      width: 100%;
+      z-index: 1;
+      overflow: hidden;
+      span {
         position: absolute;
-        // bottom: 38px;
-        top: -8px;
-        left: calc(var(--offset) / 2);
-        margin: 0;
-
-        .progress-bar.is-dragging,
-        &.is-seeking {
-            .bar-played {
-                transition: none;
-            }
-        }
-
-        .bar-played {
-            position: absolute;
-            top: 50%;
-            z-index: 2;
-            height: var(--progress-track-height);
-            overflow: hidden;
-            background: #0669ff;
-            border-radius: 4px;
-            transform: translateY(-50%);
-            transition: width 0.2s, height 0.12s;
-        }
-
-        .rc-slider-handle {
-            z-index: 3;
-            display: block;
-            top: 50%;
-            width: var(--progress-handle-size);
-            height: var(--progress-handle-size);
-            margin-top: 0;
-            opacity: 0;
-            transform: translate(-50%, -50%);
-            transition: opacity 0.12s, width 0.12s, height 0.12s;
-        }
-
-        &:hover,
-        &.is-seeking,
-        &:has(.rc-slider-handle:focus-visible) {
-            --progress-track-height: 8px;
-            --progress-handle-size: 14px;
-
-            .rc-slider-handle {
-                opacity: 1;
-            }
-        }
-
-        .progress-bar {
-            height: 100% !important;
-            border-radius: 4px;
-        }
-
-        .rc-slider-step,
-        .rc-slider-rail,
-        .rc-slider-track {
-            top: 50%;
-            height: var(--progress-track-height);
-            transform: translateY(-50%);
-            transition: height 0.12s;
-        }
-
-        .rc-slider-rail {
-            border-radius: 4px;
-        }
-
-        .rc-slider {
-            padding: 0;
-        }
-
-        .bar-loaded {
-            position: absolute;
-            top: 50%;
-            z-index: 1;
-            width: 100%;
-            height: var(--progress-track-height);
-            overflow: hidden;
-            border-radius: 4px;
-            transform: translateY(-50%);
-            transition: height 0.12s;
-
-            &>span {
-                position: absolute;
-                height: 100%;
-                background: #80bfff;
-                transition: all 0.2s;
-            }
-        }
-
-        .rc-slider-rail {
-            background-color: var(--bg-color);
-        }
-
-        .rc-slider-track {
-            z-index: 2;
-            background-color: var(--load-color);
-        }
-
-        &.rc-slider:hover .rc-slider-track {
-            background-color: var(--load-color);
-        }
-
-        &.rc-slider-vertical {
-            .rc-slider-rail {
-                left: 0;
-                width: 100%;
-                height: 100%;
-            }
-
-            .rc-slider-track {
-                left: 0;
-                width: 100%;
-            }
-        }
-
-        &.disable-hover:hover {
-            cursor: inherit;
-
-            .rc-slider-rail {
-                background-color: var(--bg-color);
-            }
-        }
+        height: 100%;
+        background: rgba(255, 255, 255, 0.3);
+      }
     }
-
-    @media (prefers-reduced-motion: reduce) {
-        .played-progress-bar {
-            .bar-played,
-            .bar-loaded,
-            .rc-slider-step,
-            .rc-slider-rail,
-            .rc-slider-track,
-            .rc-slider-handle {
-                transition-duration: 0ms !important;
-            }
+    .rc-slider-handle {
+      top: 50%;
+      width: 20px;
+      height: 20px;
+      margin-top: -10px;
+      z-index: 3;
+      opacity: 1;
+      background: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      cursor: pointer;
+      .fc-progress-thumb {
+        display: block;
+        width: 100%;
+        height: 100%;
+        transform: scale(0);
+        transition: transform 0.2s;
+        svg {
+          display: block;
+          width: 100%;
+          height: 100%;
         }
+      }
     }
+    .rc-slider-handle:focus-visible {
+      outline: 2px solid var(--progress-color);
+      outline-offset: 2px;
+    }
+    .rc-slider-handle:focus-visible .fc-progress-thumb,
+    &:hover .fc-progress-thumb,
+    &.is-seeking .fc-progress-thumb {
+      transform: scale(1);
+    }
+    .fc-progress-preview {
+      position: absolute;
+      bottom: 28px;
+      width: 160px;
+      max-width: calc(100% - 8px);
+      height: 18px;
+      transform: translateX(-50%);
+      pointer-events: none;
+      z-index: 5;
+      &.has-image {
+        height: auto;
+        aspect-ratio: 16 / 9;
+      }
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 2px;
+      }
+      span {
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(20, 20, 20, 0.9);
+        color: #fff;
+        border-radius: 2px;
+        font-size: 12px;
+        height: 18px;
+        line-height: 18px;
+        padding: 0 5px;
+        white-space: nowrap;
+      }
+    }
+    .fc-progress-indicator {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 20px;
+      margin-left: -4px;
+      pointer-events: none;
+      z-index: 4;
+      &::before,
+      &::after {
+        content: '';
+        position: absolute;
+        border: 4px solid transparent;
+      }
+      &::before {
+        top: -2px;
+        border-top-color: var(--progress-color, #00a1d6);
+      }
+      &::after {
+        bottom: -2px;
+        border-bottom-color: var(--progress-color, #00a1d6);
+      }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bottom-progress,
+    .played-progress-bar .rc-slider-rail,
+    .played-progress-bar .rc-slider-track,
+    .played-progress-bar .fc-progress-buffer,
+    .played-progress-bar .fc-progress-thumb {
+      transition: none;
+    }
+  }
 }

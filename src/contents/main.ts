@@ -82,6 +82,7 @@ function main() {
   ) => {
     // 避免多次open
     if (isWaiting) return
+    if (provider?.active) return
     isWaiting = true
     try {
       await getProvider()?.openPlayer(props)
@@ -150,14 +151,21 @@ function main() {
     }
 
     if (!navigator.userActivation.isActive) {
-      waitingPageActive().then(() => {
-        openPlayer()
-      })
+      void waitingPageActive()
+        .then(() => openPlayer())
+        .catch(console.error)
       return { state: 'error', errType: 'user-activation' }
     }
 
-    openPlayer()
-    return { state: 'ok' }
+    try {
+      await openPlayer()
+      return { state: 'ok' }
+    } catch (error) {
+      return {
+        state: 'error',
+        errType: error instanceof Error ? error.message : String(error),
+      }
+    }
   }
 
   // 从popup点击的请求PIP，这种是粗略查找最大视频

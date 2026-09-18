@@ -39,7 +39,7 @@ const Pre: FC<Props> = (props) => {
   })
 
   return (
-    <ActionButton onClick={handleClick}>
+    <ActionButton aria-label="上一集" title="上一集" onClick={handleClick}>
       <StepBackwardOutlined />
     </ActionButton>
   )
@@ -70,7 +70,7 @@ const Next: FC<Props> = (props) => {
   })
 
   return (
-    <ActionButton onClick={handleClick}>
+    <ActionButton aria-label="下一集" title="下一集" onClick={handleClick}>
       <StepForwardOutlined />
     </ActionButton>
   )

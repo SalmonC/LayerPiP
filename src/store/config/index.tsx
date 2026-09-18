@@ -32,7 +32,10 @@ import isDev from '@root/shared/isDev'
 import Browser from 'webextension-polyfill'
 import { createRoot, Root } from 'react-dom/client'
 import { ATTR_DISABLE_INJECT_PIP } from '@root/shared/config'
-import LayerPipSettings from '@root/components/LayerPipSettings'
+import LayerPipSettings, {
+  type Tab as SettingsTab,
+} from '@root/components/LayerPipSettings'
+import toast from 'react-hot-toast'
 import { PipMode } from '@root/types/config'
 import config_floatButton from './floatButton'
 import config_shortcut from './shortcut'
@@ -87,6 +90,10 @@ export const baseConfigMap = {
   nativeCompositeOptIn: config({
     defaultValue: false,
     notRecommended: true,
+  }),
+  aiSubtitleEnabled: config({
+    label: '本地 AI 字幕',
+    defaultValue: false,
   }),
   language: config<Language>({
     label: 'Language',
@@ -331,12 +338,6 @@ const {
   async onSave(newConfig) {
     newConfig = normalizeLayerPipConfig(newConfig)
 
-    if (newConfig.language) {
-      await setBrowserLocalStorage(LOCALE, newConfig.language)
-      location.reload()
-      delete (newConfig as any).language
-    }
-
     if (!isPluginEnv) return
 
     // 判断是否需要请求tabCapture权限
@@ -357,15 +358,16 @@ const {
     //   }
     // }
 
-    if (newConfig.pipMode === PipMode.document) {
-      if (!window?.documentPictureInPicture) {
-        newConfig.pipMode = PipMode.nativeComposite
-        alert(t('settingPanel.unsupportDocPIPTips'))
-      }
+    try {
+      // Saving a presentation preference must never navigate the host page.
+      if (newConfig.language && newConfig.language !== oldConfig?.language)
+        await setBrowserLocalStorage(LOCALE, newConfig.language)
+      await setBrowserSyncStorage(DM_MINI_PLAYER_CONFIG, newConfig)
+      oldConfig = { ...oldConfig, ...newConfig }
+    } catch (error) {
+      console.warn('保存设置失败', error)
+      toast.error('设置暂未保存，下次可能恢复原值；当前播放不受影响')
     }
-    setBrowserSyncStorage(DM_MINI_PLAYER_CONFIG, newConfig)
-
-    oldConfig = { ...oldConfig, ...newConfig }
   },
   async onInitLoadConfig(config) {
     if (!isPluginEnv) return config
@@ -453,6 +455,10 @@ const openSettingPanel = (input?: SettingsTarget) => {
       .querySelector<HTMLButtonElement>('[aria-label="关闭设置"]')
       ?.focus()
   }
+  stylesheet.onerror = () => {
+    host.style.visibility = 'visible'
+    toast.error('设置样式加载失败，请关闭设置后重试')
+  }
   const mount = ownerDocument.createElement('div')
   shadowRoot.append(stylesheet, mount)
   ;(renderTarget ?? ownerDocument.body).appendChild(host)
@@ -461,6 +467,10 @@ const openSettingPanel = (input?: SettingsTarget) => {
   settingsRoot = createRoot(mount)
   settingsRoot.render(
     <LayerPipSettings
+      initialTab={
+        ((input as { category?: string } | undefined)?.category ??
+          'general') as SettingsTab
+      }
       values={configStore}
       onPatch={(patch) => {
         _updateConfig(patch)
@@ -486,7 +496,10 @@ const openSettingPanel = (input?: SettingsTarget) => {
     ownerDocument.removeEventListener('keydown', onKeydown, true)
 }
 
-const updateConfig = async (config?: Partial<typeof configStore>) => {
+const updateConfig = async (
+  config?: Partial<typeof configStore>,
+  persist = false,
+) => {
   config ??= await getBrowserSyncStorage(DM_MINI_PLAYER_CONFIG)
   if (!config) return
 
@@ -495,22 +508,16 @@ const updateConfig = async (config?: Partial<typeof configStore>) => {
   } else {
     document.documentElement.removeAttribute(ATTR_DISABLE_INJECT_PIP)
   }
-  _updateConfig(normalizeLayerPipConfig(config))
+  _updateConfig(normalizeLayerPipConfig({ ...configStore, ...config }))
+  if (persist) await saveConfig()
 }
 
-// 同步多个tab的config
+// An active native PiP can outlive the source page's visibility.
+// One subscription per document; applying a remote value never persists it again.
 if (isPluginEnv) {
-  let unListenUpdate = () => {}
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState !== 'visible') return unListenUpdate()
-
-    unListenUpdate()
-    unListenUpdate = useBrowserSyncStorage(DM_MINI_PLAYER_CONFIG, updateConfig)
+  useBrowserSyncStorage(DM_MINI_PLAYER_CONFIG, (value) => {
+    if (value) void updateConfig(value).catch(console.warn)
   })
-
-  if (document.visibilityState === 'visible') {
-    unListenUpdate = useBrowserSyncStorage(DM_MINI_PLAYER_CONFIG, updateConfig)
-  }
 }
 
 window.configStore = configStore

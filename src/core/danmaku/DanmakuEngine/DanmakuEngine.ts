@@ -128,7 +128,7 @@ export default abstract class DanmakuEngine extends Events2<DanmakuEngineEvents>
     this.onUnload()
     this.tunnelManager.unload()
     this.resizeObserver.disconnect()
-    this.unloadCallbacks.forEach((cb) => cb())
+    this.unloadCallbacks.splice(0).forEach((cb) => cb())
     this.initd = false
     this.resetState()
     this.offAll()
@@ -186,7 +186,7 @@ export default abstract class DanmakuEngine extends Events2<DanmakuEngineEvents>
   async setDanmakus(danmakus: DanmakuInitData[]) {
     await this.initLock.waiting()
     this.resetState()
-    this.addDanmakus(danmakus)
+    await this.addDanmakus(danmakus)
     this.hasSeek = true
   }
 

@@ -1,154 +1,162 @@
 .video-player-v2 {
-  --fc-control: rgba(255, 255, 255, 0.06);
-  --fc-control-hover: var(--fc-surface-hover, rgba(255, 255, 255, 0.13));
-  --fc-control-pressed: rgba(255, 255, 255, 0.18);
-  --fc-focus-ring: var(--fc-accent, #5b87ff);
-  --fc-radius-control: var(--fc-radius-sm, 7px);
-  --fc-duration-fast: var(--fc-fast, 120ms);
-  --color-main: var(--fc-accent, #5b87ff);
-  --c-text-main: var(--fc-text, rgba(255, 255, 255, 0.96));
-  --box-shadow: var(--fc-shadow, 0 18px 48px rgba(0, 0, 0, 0.36));
-
-  color: var(--fc-text, rgba(255, 255, 255, 0.96));
-  background: var(--fc-bg, #0b0d10);
+  --fc-accent: #00aeec;
+  --fc-accent-soft: rgba(0, 174, 236, 0.12);
+  --fc-text: rgba(255, 255, 255, 0.85);
+  --fc-text-muted: rgba(255, 255, 255, 0.6);
+  --color-main: #00aeec;
+  --c-text-main: rgba(255, 255, 255, 0.85);
+  container-type: inline-size;
+  color: var(--fc-text);
+  background: #000;
   color-scheme: dark;
-  font-family:
-    -apple-system,
+  font:
+    14px/22px -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
+    'Helvetica Neue',
+    'PingFang SC',
+    'Microsoft YaHei',
     sans-serif;
 }
-
-.video-player-v2 .video-action-area:focus-within {
-  bottom: 0;
+.video-player-v2 .video-action-area:has(:focus-visible),
+.video-player-v2[data-menu-open] .video-action-area {
+  bottom: 0 !important;
 }
-
-.video-player-v2 .video-action-area:focus-within .action-controls {
-  opacity: 1;
+.video-player-v2 .video-action-area:has(:focus-visible) .action-controls,
+.video-player-v2[data-menu-open] .action-controls {
+  opacity: 1 !important;
 }
-
-.video-player-v2 .actions {
-  border-top: 1px solid var(--fc-border, rgba(255, 255, 255, 0.12));
-  background: rgba(14, 16, 20, 0.96);
-  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.22);
+.video-player-v2 .fc-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--area-height);
+  gap: 12px;
+  padding: 0 12px;
+  background: transparent;
 }
-
-/*
- * macOS Edge may repeatedly invalidate the native Document PiP title bar when
- * a backdrop-filter samples moving danmaku/video frames. Keep every surface
- * inside the live player compositor opaque enough to avoid that path.
- */
-.video-player-v2 .fc-menu {
-  background: rgba(20, 23, 28, 0.98);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+.fc-controls-left,
+.fc-controls-right,
+.fc-secondary-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 }
-
+.fc-controls-right {
+  margin-left: auto;
+}
+.fc-controls-left {
+  flex-shrink: 0;
+}
+.video-player-v2 .fc-played-time {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  margin-left: 4px;
+}
 .video-player-v2 .fc-action-button {
-  box-sizing: border-box;
   display: inline-flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  min-width: 32px;
+  min-width: 28px;
   height: 32px;
+  padding: 0 5px;
   margin: 0;
-  padding: 0 8px;
-  border: 1px solid transparent;
-  border-radius: var(--fc-radius-control);
   color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0;
   font: inherit;
-  line-height: 1;
-  background: transparent;
-  appearance: none;
+  white-space: nowrap;
   cursor: pointer;
-  transition:
-    color var(--fc-duration-fast) ease,
-    background-color var(--fc-duration-fast) ease,
-    border-color var(--fc-duration-fast) ease,
-    opacity var(--fc-duration-fast) ease,
-    transform 120ms ease;
 }
-
-.video-player-v2 .fc-action-button:hover {
-  border-color: var(--fc-border, rgba(255, 255, 255, 0.12));
-  background: var(--fc-control-hover);
+.video-player-v2 .fc-action-button:hover,
+.video-player-v2 .fc-action-button[aria-pressed='true'] {
+  color: #fff;
 }
-
-.video-player-v2 .fc-action-button:active {
-  background: var(--fc-control-pressed);
-  transform: translateY(1px);
+.video-player-v2 .fc-action-button.is-unactive {
+  color: rgba(255, 255, 255, 0.4);
 }
-
+.video-player-v2 .fc-action-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
 .video-player-v2 .fc-action-button:focus-visible {
-  outline: 2px solid var(--fc-focus-ring);
-  outline-offset: 2px;
+  outline: 2px solid var(--fc-accent);
+  outline-offset: -2px;
 }
-
+.video-player-v2 .fc-action-button > .anticon {
+  font-size: 20px;
+}
+.video-player-v2 .fc-action-button > svg {
+  width: 22px;
+  height: 22px;
+}
+.video-player-v2 .fc-history-button {
+  font-size: 12px;
+}
+.video-player-v2 .fc-history-button[aria-pressed='true'] {
+  color: var(--fc-accent);
+}
 .video-player-v2 .fc-close-button:focus-visible {
   top: 16px;
   opacity: 1;
 }
-
-.video-player-v2 .fc-action-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.38;
+@container (max-width: 600px) {
+  .video-player-v2 .fc-secondary-controls {
+    display: none;
+  }
+  .video-player-v2 .fc-player-controls {
+    padding: 0 8px;
+    gap: 4px;
+  }
+  .fc-controls-left,
+  .fc-controls-right {
+    gap: 0;
+  }
+  .video-player-v2 .fc-action-button {
+    padding: 0 4px;
+  }
 }
-
-.video-player-v2 .fc-action-button.is-unactive {
-  color: var(--fc-text-muted, rgba(255, 255, 255, 0.66));
-  opacity: 0.64;
+@container (max-width: 350px) {
+  .video-player-v2 .fc-played-time {
+    font-size: 10px;
+    margin-left: 0;
+  }
+  .video-player-v2 .fc-action-button {
+    min-width: 26px;
+    padding: 0 3px;
+    font-size: 12px;
+  }
 }
-
-.video-player-v2 .fc-action-button > .anticon,
-.video-player-v2 .fc-action-button > svg {
-  display: block;
-  font-size: 17px;
-}
-
-.video-player-v2 .played-progress-bar,
-.video-player-v2 .played-progress-bar .bar-played,
-.video-player-v2 .played-progress-bar .rc-slider-handle,
-.video-player-v2 .bottom-progress {
-  transition-duration: var(--fc-duration-fast) !important;
-}
-
-.video-player-v2 .played-progress-bar {
-  transition-delay: 0ms !important;
-}
-
-.video-player-v2 .played-progress-bar .bar-played {
-  background: var(--fc-accent, #5b87ff) !important;
-}
-
-.video-player-v2 .played-progress-bar .bar-loaded > span {
-  background: rgba(91, 135, 255, 0.42) !important;
-  transition: width var(--fc-duration-fast) ease !important;
-}
-
-.video-player-v2 .volume .volume-progress {
-  border: 1px solid var(--fc-border, rgba(255, 255, 255, 0.12));
-  border-radius: 14px;
-  color: var(--fc-text, rgba(255, 255, 255, 0.96));
-  background: var(--fc-surface, rgba(20, 23, 28, 0.96));
-  transition: height var(--fc-duration-fast) ease;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .video-player-v2 .video-action-area,
   .video-player-v2 .fc-action-button {
-    transition-duration: 0ms !important;
+    transition: none !important;
   }
 }
 
-@media (max-width: 420px) {
-  .video-player-v2 .fc-narrow-hide {
-    display: none !important;
-  }
-
-  .video-player-v2 .actions {
-    gap: 4px;
-    padding-right: 8px;
-    padding-left: 8px;
-  }
+.video-player-v2 .fc-action-button {
+  position: relative;
+}
+.video-player-v2
+  .fc-action-button[data-tooltip]:is(:hover, :focus-visible)::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: #141414ed;
+  color: #ffffffcc;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+  border-radius: 2px;
+  z-index: 40;
+}
+.video-player-v2 [data-player-menu-visible='true'] > .fc-action-button::after {
+  /* The open panel is this button's hover feedback; keep other hints available. */
+  display: none;
 }

@@ -8,10 +8,8 @@ import {
   probeLinkedBilibiliSource,
   resolveCurrentBilibiliIdentity,
 } from '@root/core/SubtitleSource/bilibili'
-import {
-  getSubtitleSourceBinding,
-  saveSubtitleSourceBinding,
-} from '@root/core/SubtitleSource/repository'
+import { getSubtitleSourceBinding } from '@root/core/SubtitleSource/repository'
+import { commitSubtitleSource } from '@root/core/SubtitleSource/commitSource'
 import type {
   BilibiliVideoIdentity,
   SubtitleSourceDescriptor,
@@ -38,7 +36,7 @@ const sourceLabels: Array<{
   {
     value: 'linked-bilibili',
     label: '另一个 B 站视频',
-    description: '按来源 CID 绑定，不受分P排序变化影响',
+    description: '选择另一个视频及对应分P',
   },
   {
     value: 'direct-url',
@@ -48,7 +46,7 @@ const sourceLabels: Array<{
   {
     value: 'local-file',
     label: '本地字幕文件',
-    description: '字幕正文保存在扩展本地数据库',
+    description: '保存此文件，之后自动用于当前分P',
   },
   { value: 'none', label: '关闭', description: '对当前分P明确禁用字幕' },
 ]
@@ -67,7 +65,8 @@ const NativeSubtitleSourceSettings: FC = () => {
   const [selectedPart, setSelectedPart] = useState('')
   const [selectedTrack, setSelectedTrack] = useState('')
   const [localFile, setLocalFile] = useState<File>()
-  const [existingLocalAssetId, setExistingLocalAssetId] = useState('')
+  const [existingLocalSource, setExistingLocalSource] =
+    useState<Extract<SubtitleSourceDescriptor, { type: 'local-file' }>>()
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('正在识别当前视频与分P…')
   const requestId = useRef(0)
@@ -87,7 +86,7 @@ const NativeSubtitleSourceSettings: FC = () => {
           if ('offset' in source) setOffset(String(source.offset))
           if (source.type === 'direct-url') setDirectUrl(source.url)
           if (source.type === 'local-file') {
-            setExistingLocalAssetId(source.assetId)
+            setExistingLocalSource(source)
           }
           if (source.type === 'linked-bilibili') {
             const ref = source.bvid
@@ -130,9 +129,9 @@ const NativeSubtitleSourceSettings: FC = () => {
       )
       setSelectedTrack(result.tracks[0]?.value ?? '')
       setStatus(
-        result.needsPartSelection
-          ? '该链接没有指定分P，请选择后继续'
-          : `已读取 ${result.tracks.length} 条字幕轨道`,
+        result.tracks.length
+          ? `已读取 P${result.selectedPart} 的 ${result.tracks.length} 条字幕轨道`
+          : `P${result.selectedPart} 暂无字幕，可选择其他分P`,
       )
     } catch (reason) {
       if (currentRequest === requestId.current) {
@@ -153,8 +152,12 @@ const NativeSubtitleSourceSettings: FC = () => {
     }
     setLoading(true)
     setStatus('正在保存…')
+    let createdAssetId: string | undefined
     try {
       let source: SubtitleSourceDescriptor
+      const current = await resolveCurrentBilibiliIdentity()
+      if (current.aid !== identity.aid || current.cid !== identity.cid)
+        throw new Error('视频已切换，请重新打开字幕设置')
       switch (sourceType) {
         case 'auto':
           source = { type: 'auto' }
@@ -178,6 +181,8 @@ const NativeSubtitleSourceSettings: FC = () => {
           break
         }
         case 'linked-bilibili': {
+          if (Number(selectedPart) !== probe?.selectedPart)
+            throw new Error('请先读取所选分P的字幕轨道')
           const track = probe?.tracks.find(
             (item) => item.value === selectedTrack,
           )
@@ -214,9 +219,13 @@ const NativeSubtitleSourceSettings: FC = () => {
         }
         case 'local-file': {
           if (!localFile) {
-            throw new Error('请选择一个 SRT 或 ASS 字幕文件')
+            if (!existingLocalSource)
+              throw new Error('请选择一个 SRT 或 ASS 字幕文件')
+            source = { ...existingLocalSource, offset: offsetNumber }
+            break
           }
           const asset = await createSubtitleAsset(localFile)
+          createdAssetId = asset.id
           source = {
             type: 'local-file',
             assetId: asset.id,
@@ -228,19 +237,26 @@ const NativeSubtitleSourceSettings: FC = () => {
           break
         }
       }
-      await saveSubtitleSourceBinding(identity, source)
+      await commitSubtitleSource(identity, source, createdAssetId)
+      const previousAssetId = existingLocalSource?.assetId
+      setExistingLocalSource(source.type === 'local-file' ? source : undefined)
+      setLocalFile(undefined)
+      let cleanupFailed = false
       if (
-        existingLocalAssetId &&
-        (source.type !== 'local-file' ||
-          source.assetId !== existingLocalAssetId)
+        previousAssetId &&
+        (source.type !== 'local-file' || source.assetId !== previousAssetId)
       ) {
-        await deleteSubtitleAsset(existingLocalAssetId)
-        setExistingLocalAssetId('')
+        try {
+          await deleteSubtitleAsset(previousAssetId)
+        } catch {
+          cleanupFailed = true
+        }
       }
-      if (source.type === 'local-file') {
-        setExistingLocalAssetId(source.assetId)
-      }
-      setStatus('已保存；下次打开小窗时生效')
+      setStatus(
+        cleanupFailed
+          ? '已保存并应用；旧字幕文件清理失败，已保留，不影响播放'
+          : '已保存，当前小窗会重新加载字幕',
+      )
     } catch (reason) {
       setStatus(reason instanceof Error ? reason.message : String(reason))
     } finally {
@@ -254,13 +270,11 @@ const NativeSubtitleSourceSettings: FC = () => {
 
   return (
     <fieldset className="fc-setting-group fc-subtitle-source-settings">
-      <legend>原生小窗字幕来源</legend>
+      <legend>这个视频的字幕来源</legend>
       {identity ? (
         <div className="fc-video-identity">
           <strong>{identity.title || `av${identity.aid}`}</strong>
-          <span>
-            P{identity.page} · CID {identity.cid}
-          </span>
+          <span>P{identity.page}</span>
         </div>
       ) : (
         <p>仅在 B 站视频页面中可配置当前分P的字幕来源。</p>
@@ -324,31 +338,34 @@ const NativeSubtitleSourceSettings: FC = () => {
               )}
             </button>
           )}
-          {probe?.needsPartSelection && (
-            <div className="fc-source-inline">
-              <label className="fc-source-field">
-                <span>来源分P</span>
-                <select
-                  value={selectedPart}
-                  onChange={(event) => setSelectedPart(event.target.value)}
+          {sourceType === 'linked-bilibili' &&
+            probe &&
+            probe.parts.length > 1 && (
+              <div className="fc-source-inline">
+                <label className="fc-source-field">
+                  <span>来源分P</span>
+                  <select
+                    value={selectedPart}
+                    disabled={loading}
+                    onChange={(event) => setSelectedPart(event.target.value)}
+                  >
+                    {probe.parts.map((part) => (
+                      <option key={part.cid} value={part.page}>
+                        {part.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="fc-form-button"
+                  disabled={loading || !selectedPart}
+                  onClick={() => readTracks(Number(selectedPart))}
                 >
-                  {probe.parts.map((part) => (
-                    <option key={part.cid} value={part.page}>
-                      {part.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className="fc-form-button"
-                disabled={loading || !selectedPart}
-                onClick={() => readTracks(Number(selectedPart))}
-              >
-                读取所选分P
-              </button>
-            </div>
-          )}
+                  读取所选分P
+                </button>
+              </div>
+            )}
           {!!probe?.tracks.length && (
             <label className="fc-source-field">
               <span>字幕轨道</span>
@@ -384,13 +401,17 @@ const NativeSubtitleSourceSettings: FC = () => {
         <label className="fc-source-field">
           <span>字幕文件</span>
           <input
+            key={existingLocalSource?.assetId ?? 'new-local-file'}
             type="file"
             accept=".srt,.ass"
             disabled={loading}
             onChange={(event) => setLocalFile(event.target.files?.[0])}
           />
-          {existingLocalAssetId && !localFile && (
-            <small>已保存本地字幕；选择新文件可替换。</small>
+          {existingLocalSource && !localFile && (
+            <small>
+              已保存：{existingLocalSource.fileName}
+              ；可直接调整偏移，选择新文件可替换。
+            </small>
           )}
         </label>
       )}

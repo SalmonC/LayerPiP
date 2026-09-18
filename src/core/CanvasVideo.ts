@@ -1,5 +1,4 @@
 import { addEventListener } from '@root/utils'
-import { onceCallGet } from '@root/utils/decorator'
 import { isUndefined } from 'lodash-es'
 import { EventBus, PlayerEvent } from './event'
 
@@ -26,6 +25,8 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
   ctx = this.canvas.getContext('2d')!
   private animationFrameSignal = 0
   private disposed = false
+  private redrawSignal = 0
+  private stream?: MediaStream
   isPause = true
   hasSeek = true
 
@@ -35,7 +36,7 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
   propsY?: number
 
   get canvasVideoStream() {
-    return this.canvas.captureStream()
+    return (this.stream ??= this.canvas.captureStream())
   }
   constructor(props: Props) {
     super()
@@ -89,7 +90,9 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
       })
       videoEl.addEventListener('seeked', () => {
         this.hasSeek = true
+        this.redraw()
       })
+      videoEl.addEventListener('loadeddata', () => this.redraw())
     })
 
     const unlistenClose = this.on2(PlayerEvent.close, () => this.dispose())
@@ -112,17 +115,19 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
     const { videoEl } = this
     const { height = this.height, width = this.width } = option ?? {}
 
-    this.width = width
-    this.height = height
+    if (this.disposed) return
+    this.width = Number.isFinite(width) && width > 0 ? width : 640
+    this.height = Number.isFinite(height) && height > 0 ? height : 360
+    const sourceWidth = videoEl.videoWidth || this.width
+    const sourceHeight = videoEl.videoHeight || this.height
 
-    const conWidthToConRatioHeight =
-      (this.width / videoEl.videoWidth) * videoEl.videoHeight
+    const conWidthToConRatioHeight = (this.width / sourceWidth) * sourceHeight
 
     // 转化比例需要的高度大于目前的高度
     // 转成height为底的模式
     if (conWidthToConRatioHeight > this.height) {
       const conHeightToConRatioWidth =
-        (this.height / videoEl.videoHeight) * videoEl.videoWidth
+        (this.height / sourceHeight) * sourceWidth
 
       if (isUndefined(this.propsX)) {
         this.x = (this.width - conHeightToConRatioWidth) / 2
@@ -157,6 +162,16 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
     this.canvas.width = this.width * window.devicePixelRatio
     this.canvas.height = this.height * window.devicePixelRatio
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+    this.redraw()
+  }
+
+  /** One repaint after seeking, resizing or settings changes, including paused video. */
+  redraw() {
+    if (this.disposed || this.redrawSignal) return
+    this.redrawSignal = requestAnimationFrame(() => {
+      this.redrawSignal = 0
+      this.frameUpdate(true)
+    })
   }
 
   protected clearEventListener() {}
@@ -185,6 +200,13 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
   protected hansDraw = false
   protected frameUpdate(force = false) {
     if (this.disposed) return
+    if (this.videoEl.readyState < 2) {
+      if (!force)
+        this.animationFrameSignal = requestAnimationFrame(() =>
+          this.frameUpdate(),
+        )
+      return
+    }
     if (force || (this.fps != 0 ? this.checkFPSLimit() : true)) {
       if (force || !this.isPause || !this.hansDraw) {
         this.hansDraw = true
@@ -275,6 +297,10 @@ export default class CanvasVideo extends EventBus implements Required<Props> {
     if (this.disposed) return
     this.disposed = true
     this.stopRenderAsCanvas()
+    cancelAnimationFrame(this.redrawSignal)
+    this.redrawSignal = 0
+    this.stream?.getTracks().forEach((track) => track.stop())
+    this.stream = undefined
     this.clearEventListener()
     this.canvas.remove()
   }

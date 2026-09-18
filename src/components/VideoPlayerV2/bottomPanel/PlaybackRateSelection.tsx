@@ -64,10 +64,9 @@ const PlaybackRateSelection: FC = (props) => {
     }),
   )
 
-  const menu = (
+  const menu = (close: () => void) => (
     <div className="fc-menu fc-rate-menu">
-      <p className="fc-menu-heading">播放速度</p>
-      {[0.5, 1, 1.25, 1.5, 2].map((rate) => {
+      {[2, 1.5, 1.25, 1, 0.75, 0.5].map((rate) => {
         return (
           <button
             type="button"
@@ -78,9 +77,10 @@ const PlaybackRateSelection: FC = (props) => {
             )}
             onClick={() => {
               handleChangePlaybackRate(rate)
+              close()
             }}
           >
-            {rate.toFixed(2)}x
+            {Number.isInteger(rate * 10) ? rate.toFixed(1) : rate}x
           </button>
         )
       })}
@@ -89,13 +89,12 @@ const PlaybackRateSelection: FC = (props) => {
 
   if (isLive) return null
   return (
-    <Dropdown menuRender={() => menu}>
+    <Dropdown playerMenu menuRender={menu}>
       <ActionButton
         aria-label={`播放速度 ${playbackRate.toFixed(2)} 倍`}
         title="播放速度"
-        onClick={handleTogglePlaybackRate}
       >
-        {playbackRate.toFixed(2)}x
+        {playbackRate === 1 ? '倍速' : `${playbackRate}x`}
       </ActionButton>
     </Dropdown>
   )

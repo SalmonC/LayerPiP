@@ -1,101 +1,69 @@
-import useDebounceTimeoutCallback from '@root/hook/useDebounceTimeoutCallback'
-import classNames from 'classnames'
-import { type FC, useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState, type CSSProperties } from 'react'
 import useTargetEventListener from '@root/hook/useTargetEventListener'
-import { useOnce } from '@root/hook'
 import { PlayerEvent } from '@root/core/event'
-import Iconfont from '../../Iconfont'
-import ProgressBar from '../../ProgressBar'
+import Dropdown from '../../Dropdown'
+import VolumeGlyph from './VolumeGlyph'
+import ActionButton from './ActionButton'
 import vpContext from '../context'
-import style from './VolumeBar.less?inline'
 
-type Props = {}
-const VolumeBar: FC<Props> = (props) => {
+export default function VolumeBar() {
   const { webVideo, eventBus } = useContext(vpContext)
   const [volume, setVolume] = useState(0)
-  const [isMuted, setMuted] = useState(false)
-  const [isActive, setActive] = useState(false)
-
-  useEffect(() => {
-    if (!webVideo) return
-    setVolume(webVideo.volume * 100)
-    setMuted(webVideo.muted)
-  }, [webVideo])
-
-  useTargetEventListener(
-    'volumechange',
-    () => {
-      if (!webVideo) return
-      setVolume(webVideo.volume * 100)
-      setMuted(webVideo.muted)
-    },
-    webVideo,
+  const [muted, setMuted] = useState(false)
+  const sync = () => {
+    setVolume(Math.round((webVideo?.volume ?? 0) * 100))
+    setMuted(webVideo?.muted ?? false)
+  }
+  useEffect(sync, [webVideo])
+  useTargetEventListener('volumechange', sync, webVideo)
+  const toggle = () => {
+    if (webVideo) webVideo.muted = !webVideo.muted
+  }
+  useEffect(
+    () => eventBus.on2(PlayerEvent.command_muteToggle, toggle),
+    [eventBus, webVideo],
   )
-
-  const className = classNames([
-    'icon',
-    'volume',
-    {
-      mute: !volume || isMuted,
-      active: isActive,
-    },
-  ])
-
-  useOnce(() =>
-    eventBus.on2(PlayerEvent.command_muteToggle, () => {
-      setMuted((muted) => {
-        if (!webVideo) return muted
-        webVideo.muted = !muted
-        return !muted
-      })
-    }),
-  )
-
-  const { run } = useDebounceTimeoutCallback(() => {
-    setActive(false)
-  })
-
   return (
-    <div className={className}>
-      <style dangerouslySetInnerHTML={{ __html: style }}></style>
-      <div className="volume-progress">
-        <ProgressBar
-          percent={volume}
-          width={8}
-          direction="v"
-          loadColor="var(--color-main)"
-          onClick={(p) => {
-            if (!webVideo) return
-
-            if (webVideo.muted) {
-              webVideo.muted = false
+    <Dropdown
+      playerMenu
+      action={['hover']}
+      popupClassName="fc-volume-popup"
+      popupAlign={{
+        points: ['bc', 'tc'],
+        offset: [0, -14],
+        overflow: { adjustX: 1, adjustY: 1 },
+      }}
+      menuRender={() => (
+        <div className="fc-menu fc-volume-menu">
+          <output>{muted ? 0 : volume}</output>
+          <input
+            type="range"
+            className="fc-volume-slider"
+            aria-label="音量"
+            min={0}
+            max={100}
+            value={muted ? 0 : volume}
+            style={
+              { '--range-fill': `${muted ? 0 : volume}%` } as CSSProperties
             }
-
-            webVideo.volume = p / 100
-
-            run(() => setActive(true))
-          }}
-          bgColor="#D8D8D8"
-          style={{
-            height: 100,
-            margin: 'auto',
-            cursor: 'pointer',
-            marginTop: 14,
-          }}
-        />
-      </div>
-      <div
-        onClick={() => {
-          if (!webVideo) return
-          webVideo.muted = !webVideo.muted
-        }}
-        className="v-icon"
+            onChange={(event) => {
+              if (webVideo) {
+                webVideo.muted = false
+                webVideo.volume = Number(event.target.value) / 100
+              }
+            }}
+          />
+        </div>
+      )}
+    >
+      <ActionButton
+        className="fc-volume-button"
+        aria-label={muted || !volume ? '取消静音' : '静音'}
+        title="音量（M）"
+        onClick={toggle}
       >
-        <Iconfont size={14} className="normal" type="iconicon_player_volume" />
-        <Iconfont size={14} className="muted" type="iconMute1" />
-      </div>
-    </div>
+        <VolumeGlyph muted={muted || !volume} />
+      </ActionButton>
+    </Dropdown>
   )
 }
-
-export default VolumeBar

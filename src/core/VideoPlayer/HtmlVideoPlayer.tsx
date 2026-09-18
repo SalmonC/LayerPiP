@@ -20,6 +20,17 @@ const docPIPStyleEl = createElement('style', {
 
 export class HtmlVideoPlayer extends VideoPlayerBase {
   playerRootEl?: HTMLElement
+  private videoPlayerHandle?: VideoPlayerHandle
+  private pendingInputWindowRefresh = false
+
+  refreshInputWindow() {
+    if (!this.videoPlayerHandle) {
+      this.pendingInputWindowRefresh = true
+      return
+    }
+    this.pendingInputWindowRefresh = false
+    this.videoPlayerHandle.refreshInputWindow()
+  }
 
   override async onInit() {
     await this.renderReactVideoPlayer()
@@ -79,8 +90,10 @@ export class HtmlVideoPlayer extends VideoPlayerBase {
       videoPlayer: this,
       webVideo: this.webVideoEl,
       ref: (ref) => {
+        this.videoPlayerHandle = ref ?? undefined
         if (!ref) return
         vpRef = ref
+        if (this.pendingInputWindowRefresh) this.refreshInputWindow()
       },
       isLive: this.isLive,
       setContext: () => {},
@@ -262,6 +275,8 @@ export class HtmlVideoPlayer extends VideoPlayerBase {
       // ReplacerWebProvider里套的一层container root unmount好像会传染到这个组件？这里再unmount会报错
       tryCatch(() => reactRoot.unmount())
       this.playerRootEl = undefined
+      this.videoPlayerHandle = undefined
+      this.pendingInputWindowRefresh = false
       restoreWebVideoPlayerElState()
       this.unloadPreCanvasVideoStream()
     })

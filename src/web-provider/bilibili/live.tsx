@@ -1,14 +1,16 @@
 import DanmakuSender from '@root/core/danmaku/DanmakuSender'
-import { WebProvider } from '@root/core/WebProvider'
+import type { WebProvider } from '@root/core/WebProvider'
 import BilibiliLiveBarrageClient from '@root/danmaku/bilibili/liveBarrageClient'
 import { dq1Adv } from '@root/utils'
 import { parseBilibiliLiveRoomId } from './liveRoom'
 
-export default class BilibiliLiveProvider extends WebProvider {
-  override isLive = true
-  override onInit(): void {
-    this.danmakuSender = new DanmakuSender()
-    this.danmakuSender.setData({
+export default class BilibiliLiveProvider {
+  constructor(private player: WebProvider) {}
+  // Live behavior belongs to this adapter; surface remains mode-independent.
+  onInit(): void {
+    this.player.isLive = true
+    this.player.danmakuSender = new DanmakuSender()
+    this.player.danmakuSender.setData({
       webSendButton:
         dq1Adv<HTMLElement>('.right-actions button') ||
         dq1Adv<HTMLElement>('#chat-control-panel-vm .bottom-actions button'),
@@ -18,7 +20,7 @@ export default class BilibiliLiveProvider extends WebProvider {
     })
   }
 
-  override async onPlayerInitd() {
+  async onPlayerInitd() {
     this.connectDanmakuWs()
   }
 
@@ -28,10 +30,10 @@ export default class BilibiliLiveProvider extends WebProvider {
 
     this.danmakuWs = new BilibiliLiveBarrageClient(id)
 
-    this.addOnUnloadFn(
+    this.player.addOnUnloadFn(
       this.danmakuWs.on2('danmu', (danmaku) => {
         // console.log('danmu', danmaku)
-        this.danmakuEngine?.addDanmakus([
+        this.player.danmakuEngine?.addDanmakus([
           {
             ...danmaku,
             type: 'right',
@@ -41,7 +43,7 @@ export default class BilibiliLiveProvider extends WebProvider {
     )
   }
 
-  override onUnload(): void {
+  onUnload(): void {
     this.danmakuWs?.close()
   }
 }

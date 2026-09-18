@@ -1,113 +1,117 @@
-import vpContext from '@root/components/VideoPlayerV2/context'
-import { PlayerEvent } from '@root/core/event'
 import SubtitleManager from '@root/core/SubtitleManager'
-import type { SubtitleRow } from '@root/core/SubtitleManager/types'
-import { useOnce } from '@root/hook'
+import { subtitleParagraphs } from '@root/core/SubtitleManager/presentation'
 import configStore from '@root/store/config'
-import { minmax } from '@root/utils'
-import { useMemoizedFn, useSet } from 'ahooks'
-import { autorun } from 'mobx'
 import { observer } from 'mobx-react'
-import { useContext, useMemo, useRef, useState, type FC } from 'react'
+import { useLayoutEffect, useRef, useState, type FC } from 'react'
 
-type Props = {
-  subtitleManager: SubtitleManager
-}
-const SubtitleText: FC<Props> = (props) => {
-  const { subtitleManager } = props
-  const [activeRows, setActiveRows] = useState<Record<string, SubtitleRow>>({})
-  const [fontSize, setFontSize] = useState(configStore.subtitle_fontSize)
-  const { eventBus } = useContext(vpContext)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // window.subtitleManager = subtitleManager
-  useOnce(() => {
-    const enterActiveRows = subtitleManager.activeRows
-    const activeRows: Record<string, SubtitleRow> = {}
-    enterActiveRows.forEach((row) => (activeRows[row.id] = row))
-    setActiveRows(activeRows)
-
-    const unListenEnter = subtitleManager.on2('row-enter', (row) => {
-      // console.log('row-enter', row)
-      // activeRowsManager.add(row)
-      setActiveRows((activeRows) => ({ ...activeRows, [row.id]: row }))
-    })
-    const unListenLeave = subtitleManager.on2('row-leave', (row) => {
-      // console.log('row-leave', row)
-      setActiveRows((activeRows) => {
-        delete activeRows[row.id]
-        return { ...activeRows }
-      })
-    })
-    const unListenReset = subtitleManager.on2('reset', () => {
-      setActiveRows({})
-    })
-
-    return () => {
-      unListenEnter()
-      unListenLeave()
-      unListenReset()
-    }
-  })
-
-  const updateFontSize = useMemoizedFn(() => {
-    if (!configStore.subtitle_autoSize)
-      return setFontSize(configStore.subtitle_fontSize)
-    if (!containerRef.current) return
-
-    // 先计算出目标大小
-    const tarSize =
-      (configStore.subtitle_fontSize /
-        configStore.subtitle_autoSize_startWidth) *
-      containerRef.current.clientWidth *
-      configStore.subtitle_autoSize_scaleRate
-    // 再根据最大大小调整
-    const clampSize = minmax(
-      tarSize,
-      configStore.subtitle_fontSize,
-      configStore.subtitle_autoSize_maxSize,
+const SubtitleText: FC<{ subtitleManager: SubtitleManager }> = observer(
+  ({ subtitleManager }) => {
+    const ref = useRef<HTMLDivElement>(null)
+    const [width, setWidth] = useState(500)
+    const configured = configStore.subtitle_fontSize
+    const fontSize = configStore.subtitle_autoSize
+      ? Math.max(
+          configured,
+          Math.min(
+            configStore.subtitle_autoSize_maxSize,
+            ((configured * width) / configStore.subtitle_autoSize_startWidth) *
+              configStore.subtitle_autoSize_scaleRate,
+          ),
+        )
+      : configured
+    const paragraphs = subtitleParagraphs(
+      subtitleManager.snapshot,
+      configStore.subtitle_historyEnabled,
+      configStore.subtitle_historyCount,
     )
-    setFontSize(clampSize)
-  })
 
-  useOnce(() => eventBus.on2(PlayerEvent.resize, updateFontSize))
-  useOnce(() => autorun(updateFontSize))
+    useLayoutEffect(() => {
+      const container = ref.current
+      const player = container?.closest<HTMLElement>('.video-player-v2')
+      if (!container || !player) return
+      const fit = () => {
+        setWidth(container.clientWidth)
+        const history = [
+          ...container.querySelectorAll<HTMLElement>('[data-history="true"]'),
+        ]
+        history.forEach((el) => {
+          el.style.display = ''
+        })
+        const currentHeight = [
+          ...container.querySelectorAll<HTMLElement>('[data-history="false"]'),
+        ].reduce((height, el) => height + el.offsetHeight + 4, 0)
+        let remaining = Math.max(
+          0,
+          player.clientHeight * 0.35 - Math.max(currentHeight, fontSize * 1.35),
+        )
+        let full = false
+        for (const el of history.reverse()) {
+          const height = el.offsetHeight + 4
+          if (full || height > remaining) {
+            el.style.display = 'none'
+            full = true
+          } else remaining -= height
+        }
+      }
+      fit()
+      const resize = new ResizeObserver(fit)
+      resize.observe(player)
+      return () => resize.disconnect()
+    }, [
+      subtitleManager.snapshot,
+      configStore.subtitle_historyEnabled,
+      configStore.subtitle_historyCount,
+      fontSize,
+    ])
 
-  return (
-    <div
-      className="vp-subtitle w-full flex flex-col justify-center items-center left-0 bottom-[12px] px-[24px]"
-      style={{
-        opacity: !subtitleManager.showSubtitle
-          ? 0
-          : configStore.subtitle_opacity,
-      }}
-      ref={containerRef}
-    >
-      {Object.values(activeRows).map((row, i) => (
-        <div key={row.id} className="relative w-fit">
+    return (
+      <div
+        ref={ref}
+        className="vp-subtitle w-full flex flex-col items-center px-[24px]"
+        style={{
+          opacity: subtitleManager.showSubtitle
+            ? configStore.subtitle_opacity
+            : 0,
+          pointerEvents: 'none',
+        }}
+      >
+        {paragraphs.map(({ row, history }) => (
           <div
-            className="absolute w-full h-full"
+            key={(history ? 'h-' : 'c-') + row.id}
+            data-history={String(history)}
             style={{
-              backgroundColor: configStore.subtitle_bg,
-              opacity: configStore.subtitle_bgOpacity,
-            }}
-          ></div>
-          <div
-            className="relative z-[2] px-[8px] py-[2px] text-center whitespace-pre-line"
-            style={{
+              position: 'relative',
+              maxWidth: '100%',
+              padding: '2px 8px',
+              marginBottom: 4,
               color: configStore.subtitle_fontColor,
-              opacity: configStore.subtitle_fontOpacity,
-              fontWeight: configStore.subtitle_fontWeight,
               fontFamily: configStore.subtitle_fontFamily,
-              fontSize: fontSize + 'px',
+              fontWeight: configStore.subtitle_fontWeight,
+              fontSize: history ? Math.max(12, fontSize * 0.9) : fontSize,
+              opacity: configStore.subtitle_fontOpacity * (history ? 0.7 : 1),
+              lineHeight: 1.35,
+              whiteSpace: 'pre-line',
+              overflowWrap: 'anywhere',
+              textAlign: 'center',
             }}
           >
-            {row.text}
+            <span
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: 3,
+                background: configStore.subtitle_bg,
+                opacity: configStore.subtitle_bgOpacity,
+              }}
+            />
+            <span style={{ position: 'relative' }}>{row.text}</span>
           </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-export default observer(SubtitleText)
+        ))}
+        {!!paragraphs.length && !subtitleManager.snapshot.current.length && (
+          <div style={{ height: fontSize * 1.35 }} />
+        )}
+      </div>
+    )
+  },
+)
+export default SubtitleText

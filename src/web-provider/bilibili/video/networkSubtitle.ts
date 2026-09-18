@@ -130,17 +130,8 @@ export async function probeBilibiliNetworkSubtitle(
   if (!catalog) return null
   const parts = catalog.parts
 
-  const partNumber = catalog.explicitPart ?? selectedPart
-  if (partNumber === undefined) {
-    return {
-      sourceLabel: catalog.sourceLabel,
-      aid: catalog.aid,
-      bvid: catalog.bvid,
-      parts,
-      needsPartSelection: true,
-      tracks: [],
-    }
-  }
+  // Explicit UI selection overrides the URL; an absent p starts at P1.
+  const partNumber = selectedPart ?? catalog.explicitPart ?? 1
   if (!Number.isInteger(partNumber) || partNumber < 1) {
     throw new Error('请选择有效的分P')
   }
@@ -159,22 +150,19 @@ export async function probeBilibiliNetworkSubtitle(
     if (playerData.need_login_subtitle) {
       throw new Error('该字幕需要登录 B 站后读取，请确认当前浏览器已登录')
     }
-    throw new Error(`P${part.page} 没有可用字幕轨道`)
   }
 
   const sourceLabel = catalog.sourceLabel
-  const tracks: NetworkSubtitleTrack[] = rawTracks.map(
-    (track: any, index: number) => {
-      const language = String(
-        track?.lan_doc || track?.lan || `字幕${index + 1}`,
-      )
-      return {
-        label: `[网络] ${sourceLabel} · P${part.page} · ${language}`,
-        value: normalizeSubtitleUrl(track?.subtitle_url),
-        language: String(track?.lan || track?.lan_doc || ''),
-      }
-    },
-  )
+  const tracks: NetworkSubtitleTrack[] = (
+    Array.isArray(rawTracks) ? rawTracks : []
+  ).map((track: any, index: number) => {
+    const language = String(track?.lan_doc || track?.lan || `字幕${index + 1}`)
+    return {
+      label: `[网络] ${sourceLabel} · P${part.page} · ${language}`,
+      value: normalizeSubtitleUrl(track?.subtitle_url),
+      language: String(track?.lan || track?.lan_doc || ''),
+    }
+  })
 
   return {
     sourceLabel,

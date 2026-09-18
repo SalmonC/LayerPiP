@@ -1,11 +1,9 @@
-import { LATEST_SAVE_VERSION } from '@root/shared/storeKey'
 import Browser from 'webextension-polyfill'
 // const Browser = chrome
 
 Browser.storage.local.onChanged.addListener((changes: any) => {
-  console.log('onChanged', localCallbacksMap, changes)
   Object.keys(changes).forEach((key) => {
-    localCallbacksMap[key]?.forEach?.((cb) => cb(changes[key].newValue))
+    localCallbacksMap[key]?.slice().forEach((cb) => cb(changes[key].newValue))
   })
 })
 const localCallbacksMap: Record<string, ((v: any) => void)[]> = {}
@@ -20,13 +18,24 @@ export function useBrowserLocalStorage<
   if (!localCallbacksMap[key]) {
     localCallbacksMap[key] = []
   }
-  localCallbacksMap[key].push(callback)
-  Browser.storage.local.get(key).then(({ [key as any]: val }) => {
-    callback(val)
-  })
+  let active = true
+  let changed = false
+  const listener = (value: any) => {
+    if (!active) return
+    changed = true
+    callback(value)
+  }
+  localCallbacksMap[key].push(listener)
+  Browser.storage.local
+    .get(key)
+    .then(({ [key as any]: val }) => {
+      if (active && !changed) callback(val)
+    })
+    .catch(console.warn)
   return () => {
-    if (key === LATEST_SAVE_VERSION) console.log('remove')
-    localCallbacksMap[key].slice(localCallbacksMap[key].indexOf(callback), 1)
+    active = false
+    const index = localCallbacksMap[key].indexOf(listener)
+    if (index >= 0) localCallbacksMap[key].splice(index, 1)
   }
 }
 
@@ -51,7 +60,7 @@ export function getBrowserLocalStorage<
 
 Browser.storage.sync.onChanged.addListener((changes: any) => {
   Object.keys(changes).forEach((key) => {
-    syncCallbacksMap[key]?.forEach?.((cb) => cb(changes[key].newValue))
+    syncCallbacksMap[key]?.slice().forEach((cb) => cb(changes[key].newValue))
   })
 })
 const syncCallbacksMap: Record<string, ((v: any) => void)[]> = {}
@@ -66,12 +75,24 @@ export function useBrowserSyncStorage<
   if (!syncCallbacksMap[key]) {
     syncCallbacksMap[key] = []
   }
-  syncCallbacksMap[key].push(callback)
-  Browser.storage.sync.get(key).then(({ [key as any]: val }) => {
-    callback(val)
-  })
+  let active = true
+  let changed = false
+  const listener = (value: any) => {
+    if (!active) return
+    changed = true
+    callback(value)
+  }
+  syncCallbacksMap[key].push(listener)
+  Browser.storage.sync
+    .get(key)
+    .then(({ [key as any]: val }) => {
+      if (active && !changed) callback(val)
+    })
+    .catch(console.warn)
   return () => {
-    syncCallbacksMap[key].slice(syncCallbacksMap[key].indexOf(callback), 1)
+    active = false
+    const index = syncCallbacksMap[key].indexOf(listener)
+    if (index >= 0) syncCallbacksMap[key].splice(index, 1)
   }
 }
 

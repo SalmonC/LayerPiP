@@ -1,5 +1,4 @@
 import { PlayerEvent } from '@root/core/event'
-import { useOnce } from '@root/hook'
 import { useReactBrowserSyncStorage } from '@root/hook/browserStorage'
 import { DANMAKU_VISIBLE } from '@root/shared/storeKey'
 import { t } from '@root/utils/i18n'
@@ -8,6 +7,8 @@ import { isUndefined } from 'lodash-es'
 import { runInAction } from 'mobx'
 import { observer } from 'mobx-react'
 import { FC, useContext, useEffect, useState } from 'react'
+import configStore, { updateConfig } from '@root/store/config'
+import { DanmakuFields, SwitchField } from '../../PlayerSettingsFields'
 import Dropdown from '../../Dropdown'
 import Iconfont from '../../Iconfont'
 import vpContext from '../context'
@@ -19,21 +20,39 @@ const Menu: FC = observer(() => {
 
   return (
     <div className="fc-menu fc-danmaku-menu">
-      <p className="fc-menu-heading">弹幕同步</p>
-      <label className="fc-inline-field" title={t('vp.danmakuTimeOffsetTips')}>
-        <span>{t('vp.danmakuTimeOffset')}</span>
-        <input
-          type="number"
-          step="0.1"
-          value={danmakuEngine.timeOffset}
-          onChange={(event) => {
-            runInAction(() => {
-              danmakuEngine.timeOffset = Number(event.target.value)
-            })
-          }}
-        />
-      </label>
-      <small>正数使弹幕更早出现，负数使弹幕更晚出现。</small>
+      <SwitchField
+        label="显示弹幕"
+        checked={danmakuEngine.visible}
+        onChange={() => danmakuEngine.changeVisible()}
+      />
+      <DanmakuFields
+        values={configStore}
+        onPatch={(patch) => {
+          void updateConfig(patch, true)
+        }}
+      />
+      <details className="fc-settings-details">
+        <summary>高级设置</summary>
+
+        <label
+          className="fc-inline-field"
+          title={t('vp.danmakuTimeOffsetTips')}
+        >
+          <span>{t('vp.danmakuTimeOffset')}</span>
+          <input
+            type="number"
+            step="0.1"
+            value={danmakuEngine.timeOffset}
+            onChange={(event) => {
+              runInAction(() => {
+                const value = Number(event.target.value)
+                if (Number.isFinite(value)) danmakuEngine.timeOffset = value
+              })
+            }}
+          />
+        </label>
+        <small>正数提前，负数延后（秒）。</small>
+      </details>
     </div>
   )
 })
@@ -41,41 +60,41 @@ const Menu: FC = observer(() => {
 const DanmakuSettingBtn: FC = () => {
   const { danmakuEngine, eventBus } = useContext(vpContext)
   const [isInitialized, setInitialized] = useState(false)
-  if (!danmakuEngine) return
+  const visible = danmakuEngine?.visible ?? false
 
-  const visible = danmakuEngine.visible
-
-  useOnce(() =>
-    eventBus.on2(PlayerEvent.command_danmakuVisible, () => {
-      danmakuEngine.changeVisible()
-    }),
+  useEffect(
+    () =>
+      eventBus.on2(PlayerEvent.command_danmakuVisible, () => {
+        danmakuEngine?.changeVisible()
+      }),
+    [eventBus, danmakuEngine],
   )
 
   useReactBrowserSyncStorage(DANMAKU_VISIBLE, (value) => {
-    if (isUndefined(value)) return
+    if (isUndefined(value) || !danmakuEngine) return
     runInAction(() => {
       danmakuEngine.visible = value
     })
   })
 
   useEffect(() => {
+    if (!danmakuEngine) return
     if (!isInitialized) {
       setInitialized(true)
       return
     }
     setBrowserSyncStorage(DANMAKU_VISIBLE, danmakuEngine.visible)
-  }, [danmakuEngine.visible])
+  }, [danmakuEngine?.visible])
 
+  if (!danmakuEngine) return null
   return (
-    <Dropdown menuRender={() => <Menu />}>
+    <Dropdown playerMenu action={['hover']} menuRender={() => <Menu />}>
       <ActionButton
         isUnActive={!visible}
         aria-label="弹幕"
         aria-pressed={visible}
-        title="弹幕"
-        onClick={() => {
-          danmakuEngine.changeVisible()
-        }}
+        title={visible ? '关闭弹幕（D）' : '开启弹幕（D）'}
+        onClick={() => danmakuEngine.changeVisible()}
       >
         <Iconfont size={18} type={visible ? 'danmaku_open' : 'danmaku_close'} />
       </ActionButton>

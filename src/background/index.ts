@@ -212,13 +212,30 @@ onMessage(WebextEvent.stopGetDanmaku, ({ data }) => {
 const FLOAT_BTN_ID = 'FLOAT_BTN_ID',
   SETTING_ID = 'SETTING_ID'
 Browser.runtime.onInstalled.addListener(() => {
-  Browser.contextMenus.create({
+  // Edge retains action menus across unpacked-extension reloads/updates.
+  // Update our existing IDs first; create only when that ID is absent.
+  const ensureMenu = async (
+    properties: Browser.Menus.CreateCreatePropertiesType,
+  ) => {
+    const { id, ...changes } = properties
+    if (!id) return
+    try {
+      await Browser.contextMenus.update(id, changes)
+    } catch {
+      Browser.contextMenus.create(properties, () => {
+        const error = Browser.runtime.lastError
+        if (error)
+          console.warn('[LayerPiP] action menu creation failed', error.message)
+      })
+    }
+  }
+  void ensureMenu({
     contexts: ['action'],
     type: 'checkbox',
     title: t('menu.showFloatBtn'),
     id: FLOAT_BTN_ID,
   })
-  Browser.contextMenus.create({
+  void ensureMenu({
     contexts: ['action'],
     title: t('menu.openSetting'),
     id: SETTING_ID,

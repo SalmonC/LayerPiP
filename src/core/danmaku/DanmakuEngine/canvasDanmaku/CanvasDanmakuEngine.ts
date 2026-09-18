@@ -12,6 +12,12 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
 
   canvasDanmakuVideo?: CanvasDanmakuVideo
   private compositeSubtitleManager?: SubtitleManager
+  private externalComposite = false
+
+  useComposite(composite: CanvasDanmakuVideo) {
+    this.externalComposite = true
+    this.canvasDanmakuVideo = composite
+  }
 
   enableCompositeVideo(subtitleManager?: SubtitleManager) {
     this.compositeSubtitleManager = subtitleManager
@@ -39,7 +45,7 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
   }
 
   onInit(props: DanmakuEngineInitProps): void {
-    this.canvasDanmakuVideo = new CanvasDanmakuVideo({
+    this.canvasDanmakuVideo ??= new CanvasDanmakuVideo({
       danmakuEngine: this,
       videoEl: props.media as HTMLVideoElement,
       fps: this.fps,
@@ -55,8 +61,10 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
   private unlistens: noop[] = []
   onUnload(): void {
     this.unlistens.forEach((unlisten) => unlisten())
-    this.canvasDanmakuVideo?.dispose()
-    this.canvasDanmakuVideo = undefined
+    if (!this.externalComposite) {
+      this.canvasDanmakuVideo?.dispose()
+      this.canvasDanmakuVideo = undefined
+    }
   }
 
   bindEvent() {
@@ -206,9 +214,12 @@ export default class CanvasDanmakuEngine extends DanmakuEngine {
   }
 
   override resetState() {
+    for (const danmaku of this.runningDanmakus) danmaku.unload()
+    this.runningDanmakus.clear()
     super.resetState()
     this.nowPos = 0
     this.hasDraw = false
+    this.canvasDanmakuVideo?.redraw()
   }
 
   override forceRerenderDanmaku(): void {

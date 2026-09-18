@@ -7,6 +7,9 @@ export const manifest: chrome.runtime.ManifestV3 = {
   description: '__MSG_appDesc__',
   author: 'LayerPiP contributors; based on apades/dmMiniPlayer' as any,
   manifest_version: 3,
+  content_security_policy: {
+    extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'",
+  },
   version,
   version_name: `LayerPiP ${version}`,
   key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsEX5LjQJRb63yOlR7CeDKjncLBxrk3+ETlQC2miM8dAOCHfyhXBZE1CsIbJwTGJ3SuwAUPQicPofPPAydWM559K24Yfi1HQfPx6J6wwkGSiBDaXyZ8gaSsE70NvjaozsU1eSH1b0oQCSHcCHmPdPCuVfsMPsfaQFYSvgwKkbVlikME7IOpwkfgb5H9amJmFK7n7ogcXoDHudyIWcSdwKaBW60lvWRIP0fOmU8fa6je5K93YEbxUiCtZePCkuA+k9EEipkH2iqlCejnZ0Wa27ovRHWO/r1I0qc/n6FWc4Jb0HMatE13MT3U3gj3sF3q2B582HUrPt6eYE3Y0+jblUBwIDAQAB',

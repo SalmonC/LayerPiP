@@ -5,8 +5,6 @@ import type {
 } from '@root/core/SubtitleManager/types'
 import bgFetch from '@root/utils/bgFetch'
 import { runInAction } from 'mobx'
-import configStore from '@root/store/config'
-import { PipMode } from '@root/types/config'
 import { getSubtitleAsset } from '@root/core/SubtitleSource/assets'
 import {
   probeLinkedBilibiliSource,
@@ -22,15 +20,14 @@ import { probeBilibiliNetworkSubtitle } from './networkSubtitle'
 export default class BilibiliSubtitleManager extends SubtitleManager {
   override async onInit() {
     const generation = this.getLifecycleGeneration()
-    const subtitleItems = await getSubtitles()
+    // A missing site track list must not block an explicitly bound local/linked source.
+    const subtitleItems = await getSubtitles().catch(() => [])
     if (!this.isLifecycleCurrent(generation)) return
     runInAction(() => {
       this.subtitleItems.length = 0
       this.subtitleItems = subtitleItems
     })
-    if (configStore.pipMode === PipMode.nativeComposite) {
-      await this.loadNativeSubtitleSource(generation)
-    }
+    await this.loadNativeSubtitleSource(generation)
   }
 
   private async loadNativeSubtitleSource(generation: number) {

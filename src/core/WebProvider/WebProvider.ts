@@ -1,12 +1,6 @@
 import { onMessage, sendMessage } from 'webext-bridge/content-script'
 import configStore from '@root/store/config'
-import {
-  createElement,
-  dq,
-  getDeepPrototype,
-  tryCatch,
-  wait,
-} from '@root/utils'
+import { createElement, dq, tryCatch, wait } from '@root/utils'
 import EventSwitcher from '@root/utils/EventSwitcher'
 import playerConfig from '@root/store/playerConfig'
 import { checkIsLive } from '@root/utils/video'
@@ -19,6 +13,7 @@ import {
   HtmlDanmakuEngine,
 } from '../danmaku/DanmakuEngine'
 import SubtitleManager from '../SubtitleManager'
+import { addonRecovery } from '../AddonRecovery'
 import VideoPlayerBase, {
   ExtendComponent,
 } from '../VideoPlayer/VideoPlayerBase'
@@ -27,7 +22,10 @@ import { EventBus, PlayerEvent } from '../event'
 import { SideSwitcher } from '../SideSwitcher'
 import IronKinokoEngine from '../danmaku/DanmakuEngine/IronKinoko/IronKinokoEngine'
 import VideoPreviewManager from '../VideoPreviewManager'
-import { CanvasPIPWebProvider, DocPIPWebProvider, ReplacerWebProvider } from '.'
+import type { SiteAdapter } from './SiteAdapter'
+import { autorun } from 'mobx'
+import Browser from 'webextension-polyfill'
+import { aiSubtitles } from '../AiSubtitle/controller'
 
 // ? 不知道为什么不能集中一起放这里，而且放这里是3个empty😅
 // const FEAT_PROVIDER_LIST = [
@@ -64,33 +62,54 @@ export default abstract class WebProvider
   miniPlayer!: VideoPlayerBase
   protected MiniPlayer!: typeof VideoPlayerBase
 
-  constructor() {
-    super()
-    if (
-      [DocPIPWebProvider, CanvasPIPWebProvider, ReplacerWebProvider].includes(
-        Object.getPrototypeOf(this).constructor,
-      )
-    )
-      return this
+  siteAdapter?: SiteAdapter
+  private closing = false
+  private opening = false
+  private releaseRecovery = () => {}
+  private releaseAi = () => {}
+  private observeAi = () => {}
 
-    const provider = (() => {
-      if (
-        (playerConfig.forceDocPIPRenderType ||
-          configStore.docPIP_renderType) === DocPIPRenderType.replaceWebVideoDom
-      )
-        return new ReplacerWebProvider()
-      if (configStore.pipMode === PipMode.document)
-        return new DocPIPWebProvider()
-      return new CanvasPIPWebProvider()
-    })()
+  private bindAi() {
+    try {
+      this.releaseAi()
+      this.releaseAi = aiSubtitles.bind(this.webVideo, this.subtitleManager, Browser.runtime.getURL('ai-frame.html'), document)
+    } catch (error) {
+      aiSubtitles.stop('AI 字幕接入失败，请重新打开小窗后重试')
+      console.warn('AI 字幕未接入，视频继续播放', error)
+    }
+  }
 
-    const rootPrototype =
-      getDeepPrototype(this, DocPIPWebProvider) ||
-      getDeepPrototype(this, CanvasPIPWebProvider) ||
-      getDeepPrototype(this, ReplacerWebProvider) ||
-      getDeepPrototype(this, WebProvider)
-    Object.setPrototypeOf(rootPrototype, provider)
-    return this
+  refreshRecovery() {
+    this.releaseRecovery()
+    const source = this.webVideo
+    let current = true
+    const release = addonRecovery.bind(source, {
+      subtitle: async () => {
+        await this.subtitleManager.init(source)
+        if (!current) return
+        if (this.danmakuEngine instanceof CanvasDanmakuEngine)
+          this.danmakuEngine.canvasDanmakuVideo?.retryLayer('字幕')
+      },
+      danmaku: async () => {
+        await this.prepareDanmakuRetry()
+        if (!current) return
+        await this.siteAdapter?.retryDanmaku?.()
+        if (!current) return
+        this.danmakuEngine?.forceRerenderDanmaku()
+        if (this.danmakuEngine instanceof CanvasDanmakuEngine)
+          this.danmakuEngine.canvasDanmakuVideo?.retryLayer('弹幕')
+      },
+    })
+    this.releaseRecovery = () => {
+      current = false
+      release()
+    }
+  }
+
+  protected prepareDanmakuRetry(): void | Promise<void> {
+    const engine = this.danmakuEngine
+    if (engine && !engine.initd && engine.container)
+      engine.init({ media: this.webVideo, container: engine.container })
   }
 
   init() {
@@ -106,9 +125,9 @@ export default abstract class WebProvider
       return new CanvasDanmakuEngine()
     })()
 
-    this.subtitleManager = new SubtitleManager()
-
     this.onInit()
+    this.siteAdapter?.onInit()
+    this.subtitleManager ??= new SubtitleManager()
     this.active = true
   }
   onInit(): void {}
@@ -117,17 +136,26 @@ export default abstract class WebProvider
   onPlayerInitd(): void {}
 
   protected onUnloadFn: (() => void)[] = []
-  protected addOnUnloadFn(fn: () => void) {
+  addOnUnloadFn(fn: () => void) {
     this.onUnloadFn.push(fn)
   }
   unload() {
     console.log('WebProvider unload')
-    this.onUnload()
-    this.onUnloadFn.forEach((fn) => fn())
+    const release = (fn: () => void) => {
+      try {
+        fn()
+      } catch (error) {
+        console.error('小窗资源释放失败', error)
+      }
+    }
+    release(() => this.releaseRecovery())
+    release(() => this.observeAi())
+    release(() => this.releaseAi())
+    release(() => this.siteAdapter?.onUnload())
+    release(() => this.onUnload())
+    this.onUnloadFn.forEach(release)
     this.onUnloadFn.length = 0
-    setTimeout(() => {
-      this.active = false
-    }, 0)
+    this.active = false
   }
   onUnload() {
     this.isQuickHiding = false
@@ -135,50 +163,77 @@ export default abstract class WebProvider
 
   /**打开播放器 */
   async openPlayer(props?: { videoEl?: HTMLVideoElement }) {
-    if (!navigator.userActivation.isActive) return
-    this.init()
-    this.webVideo = props?.videoEl ?? this.getVideoEl()
-    this.injectVideoEventsListener(this.webVideo)
-    this.bindCommandsEvent()
-    this.isLive ??= checkIsLive(this.webVideo)
-
-    const MiniPlayer = (Object.getPrototypeOf(this) as WebProvider).MiniPlayer
-    this.miniPlayer = new MiniPlayer({
-      webVideoEl: this.webVideo,
-      danmakuEngine: this.danmakuEngine,
-      subtitleManager: this.subtitleManager,
-      danmakuSender: this.danmakuSender,
-      sideSwitcher: this.sideSwitcher,
-      videoPreviewManager: this.videoPreviewManager,
-      isLive: !!this.isLive,
-    })
-
-    const unListenVideoChanged = this.on2(
-      PlayerEvent.webVideoChanged,
-      (newVideoEl) => {
-        this.webVideo = newVideoEl
-      },
-    )
-
-    await this.onOpenPlayer()
-    await this.onPlayerInitd()
-
-    sendMessage('PIP-active', { name: 'PIP-active' })
-
-    this.miniPlayer.on(PlayerEvent.close, () => {
-      this.unload()
-      if (configStore.pauseInClose_video && !this.doNotUsePauseInCloseConfig) {
-        const video = this.webVideo
-        if (!this.isLive) {
-          video.pause()
+    if (this.opening || this.active) return
+    if (!navigator.userActivation.isActive)
+      throw new Error('请先点击网页后打开小窗')
+    this.opening = true
+    this.closing = false
+    const cleanup = () => {
+      if (this.closing) return
+      this.closing = true
+      try {
+        this.unload()
+        for (const release of [
+          () => this.subtitleManager?.unload(),
+          () => this.videoPreviewManager?.unload(),
+        ]) {
+          try {
+            release()
+          } catch (error) {
+            console.warn('附加资源释放失败', error)
+          }
         }
+        if (
+          configStore.pauseInClose_video &&
+          !this.doNotUsePauseInCloseConfig &&
+          !this.isLive
+        )
+          this._webVideo?.pause()
+      } finally {
+        this.offAll()
+        playerConfig.clear()
+        this.active = false
       }
-
-      this.offAll()
-
-      unListenVideoChanged()
-      playerConfig.clear()
-    })
+    }
+    // Register before the first await: partial opens follow the same cleanup path.
+    this.on(PlayerEvent.close, cleanup)
+    try {
+      this.webVideo = props?.videoEl ?? this.getVideoEl()
+      this.init()
+      this.injectVideoEventsListener(this.webVideo)
+      this.bindCommandsEvent()
+      this.isLive ??= checkIsLive(this.webVideo)
+      this.miniPlayer = new this.MiniPlayer({
+        webVideoEl: this.webVideo,
+        danmakuEngine: this.danmakuEngine,
+        subtitleManager: this.subtitleManager,
+        danmakuSender: this.danmakuSender,
+        sideSwitcher: this.sideSwitcher,
+        videoPreviewManager: this.videoPreviewManager,
+        isLive: !!this.isLive,
+      })
+      this.on(PlayerEvent.webVideoChanged, (newVideo) => {
+        this.webVideo = newVideo
+        this.refreshRecovery()
+        this.subtitleManager.updateVideo(newVideo)
+        this.bindAi()
+      })
+      this.refreshRecovery()
+      await this.onOpenPlayer()
+      if (this.closing) throw new Error('小窗已关闭')
+      await this.onPlayerInitd()
+      await this.siteAdapter?.onPlayerInitd()
+      this.bindAi()
+      this.observeAi = autorun(() => aiSubtitles.setEnabled(!!configStore.aiSubtitleEnabled))
+      void sendMessage('PIP-active', { name: 'PIP-active' }).catch(console.warn)
+    } catch (error) {
+      this.doNotUsePauseInCloseConfig = true
+      this.emit(PlayerEvent.close)
+      cleanup()
+      throw error
+    } finally {
+      this.opening = false
+    }
   }
 
   eventSwitcher?: EventSwitcher<HTMLVideoElement>

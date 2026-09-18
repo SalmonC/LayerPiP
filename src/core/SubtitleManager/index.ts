@@ -3,10 +3,12 @@ import Events2 from '@root/utils/Events2'
 import { autorun, makeObservable, observable, runInAction } from 'mobx'
 import { ERROR_MSG } from '@root/shared/errorMsg'
 import toast from 'react-hot-toast'
+import { createElement as reactElement } from 'react'
 import { getNowLang, t } from '@root/utils/i18n'
 import { googleTranslate } from '@root/utils/translate'
 import bgFetch from '@root/utils/bgFetch'
-import { PlayerComponent } from '../types'
+import { addonRecovery } from '../AddonRecovery'
+import { SubtitleTimeline, type SubtitleSnapshot } from './SubtitleTimeline'
 import {
   applyNetworkSubtitleOffset,
   createDirectSubtitleProbe,
@@ -28,6 +30,8 @@ export const translateMode = {
   single: t('subtitleTranslate.single'),
   none: t('subtitleTranslate.none'),
 } as const
+export const AI_SUBTITLE_LABEL = 'AI 本地字幕'
+const AI_SUBTITLE_VALUE = 'layerpip-generated-ai'
 class SubtitleManager extends Events2<SubtitleManagerEvents> {
   initd = false
   subtitleItems: SubtitleItem[] = []
@@ -36,6 +40,9 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   private subtitleCache = new Map<string, { rows: SubtitleRow[] }>()
   /**正在使用的字幕rows */
   rows: SubtitleRow[] = []
+  snapshot: SubtitleSnapshot = { current: [], history: [] }
+  private timeline = new SubtitleTimeline([])
+  private trackGeneration = 0
   rowIndex = 0
   activeRows = new Set<SubtitleRow>()
   activeSubtitleLabel: string = ''
@@ -43,6 +50,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   translateMode: keyof typeof translateMode = 'none'
   private customSubtitleId = 0
   private lifecycleGeneration = 0
+  private generatedSession = 0
 
   protected getLifecycleGeneration() {
     return this.lifecycleGeneration
@@ -67,6 +75,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     makeObservable(this, {
       subtitleItems: observable,
       rowIndex: observable,
+      snapshot: observable.ref,
       // activeRows: observable,
       activeSubtitleLabel: observable,
       showSubtitle: true,
@@ -86,13 +95,39 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     this.reset()
     const generation = this.lifecycleGeneration
     this.video = video
+    addonRecovery.report(video, 'subtitle', '')
 
     this.initing = true
     const [err] = await tryCatch(async () => this.onInit())
     if (!this.isLifecycleCurrent(generation)) return
     this.initing = false
     if (err) {
-      toast.error(t('error.subtitleLoad'))
+      addonRecovery.report(this.video, 'subtitle', err)
+      const message =
+        err instanceof Error ? err.message : t('error.subtitleLoad')
+      toast(
+        (notification) =>
+          reactElement(
+            'button',
+            {
+              type: 'button',
+              style: {
+                color: 'inherit',
+                background: 'transparent',
+                border: 0,
+                cursor: 'pointer',
+                textAlign: 'left',
+              },
+              onClick: () => {
+                toast.dismiss(notification.id)
+                if (this.isLifecycleCurrent(generation) && this.video)
+                  void this.init(this.video)
+              },
+            },
+            `${message} · 点击重试字幕`,
+          ),
+        { duration: 8000 },
+      )
     }
     this.initd = true
   }
@@ -202,67 +237,71 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     return uniqueLabel
   }
 
+  /** A live track bypasses online translation and cannot publish into another source. */
+  beginGeneratedSubtitle() {
+    const session = ++this.generatedSession
+    const generation = this.lifecycleGeneration
+    const key = `custom-${AI_SUBTITLE_VALUE}`
+    if (!this.subtitleItems.some((item) => item.value === AI_SUBTITLE_VALUE))
+      this.subtitleItems.push({ label: AI_SUBTITLE_LABEL, value: AI_SUBTITLE_VALUE })
+    if (!this.subtitleCache.has(key)) this.subtitleCache.set(key, { rows: [] })
+    const same = this.nowSubtitleItemsLabel === AI_SUBTITLE_LABEL
+    void this.useSubtitle(AI_SUBTITLE_LABEL)
+    if (same) void this.autoloadSubtitle()
+    return {
+      append: (incoming: SubtitleRow[]) => {
+        if (session !== this.generatedSession || generation !== this.lifecycleGeneration || this.nowSubtitleItemsLabel !== AI_SUBTITLE_LABEL) return false
+        const previous = this.subtitleCache.get(key)?.rows ?? []
+        const rows = [...previous.filter((row) => !incoming.some((next) => next.startTime < row.endTime && next.endTime > row.startTime)), ...incoming]
+          .sort((a, b) => a.startTime - b.startTime).slice(-6000)
+        this.subtitleCache.set(key, { rows })
+        this.rows = [...rows]
+        this.listenVideoEvents()
+        runInAction(() => { this.showSubtitle = rows.length > 0 })
+        return true
+      },
+      close: () => { if (session === this.generatedSession) this.generatedSession++ },
+    }
+  }
+
   protected listenVideoEvents(video = this.video) {
     if (!video) throw Error(ERROR_MSG.unInitVideoEl)
 
     // 先清理旧监听，防重复绑定
     this.videoUnListen()
 
-    const activeRowEndTimes = new Map<SubtitleRow, number>()
-
-    const handleTimeUpdate = () => {
-      const cTime = video.currentTime
-
-      // 檢查已激活的行是否需要離開
-      for (const [row, _endTime] of activeRowEndTimes) {
-        if (row.endTime <= cTime) {
-          this.emit('row-leave', row)
-          this.activeRows.delete(row)
-          activeRowEndTimes.delete(row)
-        }
+    this.timeline = new SubtitleTimeline(this.rows)
+    const update = () => {
+      const next = this.timeline.at(video.currentTime)
+      const same = (a: SubtitleRow[], b: SubtitleRow[]) =>
+        a.length === b.length && a.every((row, i) => row === b[i])
+      for (const row of this.activeRows) {
+        if (!next.current.includes(row)) this.emit('row-leave', row)
       }
-
-      // 掃描新的行進入
-      while (this.rowIndex < this.rows.length) {
-        const row = this.rows[this.rowIndex]
-        if (row.endTime <= cTime) {
-          this.rowIndex++
-          continue
-        }
-        if (row.startTime > cTime) {
-          break
-        }
-        this.rowIndex++
-        // 觸發enter
-        this.emit('row-enter', row)
-        this.activeRows.add(row)
-        activeRowEndTimes.set(row, row.endTime)
+      for (const row of next.current) {
+        if (!this.activeRows.has(row)) this.emit('row-enter', row)
+      }
+      this.activeRows = new Set(next.current)
+      if (
+        !same(next.current, this.snapshot.current) ||
+        !same(next.history, this.snapshot.history)
+      ) {
+        runInAction(() => {
+          this.snapshot = next
+        })
       }
     }
-
-    const clearActiveRows = () => {
-      for (const [row] of activeRowEndTimes) {
-        this.emit('row-leave', row)
-        this.activeRows.delete(row)
-      }
-      activeRowEndTimes.clear()
-    }
-
-    const mainUnListen = addEventListener(video, (video) => {
-      video.addEventListener('timeupdate', handleTimeUpdate)
-
-      // 跳進度條就重置所有字幕
-      video.addEventListener('seeked', () => {
-        clearActiveRows()
-        this.rowIndex = 0
-        handleTimeUpdate()
-      })
+    const stop = addEventListener(video, (el) => {
+      el.addEventListener('timeupdate', update)
+      el.addEventListener('seeking', update)
+      el.addEventListener('seeked', update)
     })
-
     this.videoUnListen = () => {
-      mainUnListen()
-      clearActiveRows()
+      stop()
+      for (const row of this.activeRows) this.emit('row-leave', row)
+      this.activeRows.clear()
     }
+    update()
   }
 
   updateVideo(video: HTMLVideoElement) {
@@ -282,6 +321,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     const translateMode = this.translateMode
     if (!subtitleItemsLabel) return
     this.resetSubtitleState()
+    const generation = this.trackGeneration
     this.activeSubtitleLabel = subtitleItemsLabel
     // let subtitleData = this.subtitleCache.get(
     //   `${subtitleItemsLabel}-${translateMode}`,
@@ -290,6 +330,14 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     const subtitleItemsValue = this.subtitleItems.find(
       (item) => item.label === subtitleItemsLabel,
     )?.value
+
+    // Generated speech stays local even if another track enabled translation.
+    if (subtitleItemsValue === AI_SUBTITLE_VALUE) {
+      this.rows = [...(this.subtitleCache.get(`custom-${AI_SUBTITLE_VALUE}`)?.rows ?? [])]
+      this.listenVideoEvents()
+      this.showSubtitle = this.rows.length > 0
+      return
+    }
 
     await (async () => {
       if (!subtitleData && subtitleItemsValue) {
@@ -345,6 +393,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
       }
     })()
 
+    if (generation !== this.trackGeneration) return
     if (subtitleData) {
       this.rows = [...subtitleData.rows]
 
@@ -355,7 +404,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
     }
 
     this.listenVideoEvents()
-    this.showSubtitle = true
+    this.showSubtitle = this.rows.length > 0
   }
 
   async loadSubtitle(value: string): Promise<SubtitleRow[]> {
@@ -365,6 +414,7 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   reset() {
     this.lifecycleGeneration++
     this.initd = false
+    this.nowSubtitleItemsLabel = ''
     this.subtitleItems.length = 0
     this.subtitleCache.clear()
     this.resetSubtitleState()
@@ -372,6 +422,10 @@ class SubtitleManager extends Events2<SubtitleManagerEvents> {
   }
 
   resetSubtitleState() {
+    this.trackGeneration++
+    runInAction(() => {
+      this.snapshot = { current: [], history: [] }
+    })
     // this.unListenRows()
     this.videoUnListen()
     this.rows.length = 0

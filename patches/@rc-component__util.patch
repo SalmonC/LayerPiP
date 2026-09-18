@@ -29,3 +29,19 @@ index 108bcca04eb2e7aea2d302bf43149e7599c46e23..0f86c5df9f08331c4347f9c88ea7eb72
  }
  
  /**
+diff --git a/es/Dom/isVisible.js b/es/Dom/isVisible.js
+--- a/es/Dom/isVisible.js
++++ b/es/Dom/isVisible.js
+@@ -5,1 +5,3 @@
+-  if (element instanceof Element) {
++  // Document PiP elements belong to a different window than the caller.
++  const ElementType = element.ownerDocument?.defaultView?.Element;
++  if ((ElementType && element instanceof ElementType) || element instanceof Element) {
+diff --git a/lib/Dom/isVisible.js b/lib/Dom/isVisible.js
+--- a/lib/Dom/isVisible.js
++++ b/lib/Dom/isVisible.js
+@@ -11,1 +11,3 @@
+-  if (element instanceof Element) {
++  // Document PiP elements belong to a different window than the caller.
++  const ElementType = element.ownerDocument?.defaultView?.Element;
++  if ((ElementType && element instanceof ElementType) || element instanceof Element) {

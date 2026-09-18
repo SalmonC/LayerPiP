@@ -7,15 +7,61 @@ import { Key, keyCodeToCode, keyToKeyCodeMap, KeyType } from '@root/types/key'
 import { autorun } from 'mobx'
 import { addEventListener } from '@root/utils'
 import { eventBus, PlayerEvent } from './event'
+import { shortcutKeys } from './shortcutKeys'
 
 const INTERACTIVE_SELECTOR =
   'input, textarea, select, button, [contenteditable]:not([contenteditable="false"])'
+type ShortcutConfigName = Exclude<keyof typeof config_shortcut, 'shortcut_desc'>
+type ShortcutConfigs = Partial<Record<ShortcutConfigName, Key[]>>
 
-const isInteractiveEvent = (event: KeyboardEvent) => {
-  const eventPath = event.composedPath?.() ?? [event.target]
-  return eventPath.some((target) =>
-    Boolean((target as HTMLElement | null)?.closest?.(INTERACTIVE_SELECTOR)),
+export const isInteractiveTarget = (target: EventTarget | null | undefined) => {
+  if (!target) return false
+
+  if (
+    typeof (target as HTMLElement).closest === 'function' &&
+    (target as HTMLElement).closest(INTERACTIVE_SELECTOR)
   )
+    return true
+
+  // Replacer/full-page proxy events carry a small serializable target object
+  // instead of the original DOM node, so `closest()` is unavailable there.
+  const serializableTarget = target as {
+    tagName?: unknown
+    contentEditable?: unknown
+    isContentEditable?: unknown
+  }
+  const tagName =
+    typeof serializableTarget.tagName === 'string'
+      ? serializableTarget.tagName.toUpperCase()
+      : ''
+  if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(tagName)) return true
+
+  return (
+    serializableTarget.isContentEditable === true ||
+    serializableTarget.contentEditable === '' ||
+    serializableTarget.contentEditable === 'true' ||
+    serializableTarget.contentEditable === 'plaintext-only'
+  )
+}
+
+export const isInteractiveEvent = (event: KeyboardEvent) => {
+  const eventPath = event.composedPath?.()
+  const targets = eventPath?.length ? eventPath : [event.target]
+  return targets.some((target) => isInteractiveTarget(target))
+}
+
+const getEventKeyCode = (event: KeyboardEvent) => {
+  const keyCode = event.keyCode || (event as any).which
+  if (keyCode) return keyCode as number
+
+  const code = event.code as keyof typeof keyToKeyCodeMap
+  if (code && code in keyToKeyCodeMap) return keyToKeyCodeMap[code]
+
+  const key = event.key?.length === 1 ? event.key.toUpperCase() : event.key
+  if (key && key in keyToKeyCodeMap)
+    return keyToKeyCodeMap[key as keyof typeof keyToKeyCodeMap]
+
+  return undefined
 }
 
 // const getShortcutConfigs = onceCall(() =>
@@ -28,7 +74,7 @@ const isInteractiveEvent = (event: KeyboardEvent) => {
 //   ),
 // )
 
-export const getShortcutConfigs = () => {
+export const getShortcutConfigs = (): ShortcutConfigs => {
   const keys = Object.entries(config_shortcut)
     .filter(
       ([key, val]) =>
@@ -36,9 +82,15 @@ export const getShortcutConfigs = () => {
     )
     .map(([key]) => key)
 
-  return Object.fromEntries(
-    keys.map((key) => [key, (configStore as any)[key]]),
-  ) as Pick<typeof configStore, keyof typeof config_shortcut>
+  const configs: ShortcutConfigs = {}
+  keys.forEach((key) => {
+    const configKey = key as ShortcutConfigName
+    configs[configKey] = shortcutKeys(
+      (configStore as any)[key],
+      (config_shortcut as any)[key]?.defaultValue,
+    ) as Key[]
+  })
+  return configs
 }
 
 export const getShortcutAllConfigs = () => {
@@ -94,6 +146,9 @@ export class KeyBinding {
         keydownWindow.addEventListener('layerpip-player-keyup' as any, (e) => {
           this.handleCustomKeyUp(e)
         })
+        keydownWindow.addEventListener('blur', () => {
+          this.releasePressedKeys()
+        })
       }),
     )
 
@@ -102,7 +157,11 @@ export class KeyBinding {
         this.configKeyMap = {}
         const configs = getShortcutConfigs()
         Object.entries(configs).forEach(([name, _keys]) => {
-          const keys = _keys as Key[]
+          const keys = shortcutKeys(
+            _keys,
+            (config_shortcut as any)[name]?.defaultValue,
+          ) as Key[]
+          if (!keys.length) return
           const key = (keys as string[]).join('+')
           const command = name.replace('shortcut_', 'command_') as any
 
@@ -133,8 +192,30 @@ export class KeyBinding {
   }
 
   reset() {
+    this.releasePressedKeys()
     this.unListens.forEach((fn) => fn())
     this.unListens.length = 0
+    this.pressingKeyMap = {}
+    this.triggeredPressingKeyMap = {}
+    this.releasePressingKeyFnMap = {}
+    this.configKeyMap = {}
+    this.lockedKey = ''
+  }
+
+  private releasePressedKeys() {
+    Object.entries(this.releasePressingKeyFnMap).forEach(
+      ([mapKey, release]) => {
+        try {
+          release()
+        } catch (error) {
+          console.error('failed to release pressed shortcut', error)
+        } finally {
+          delete this.releasePressingKeyFnMap[mapKey]
+        }
+      },
+    )
+    this.pressingKeyMap = {}
+    this.triggeredPressingKeyMap = {}
   }
 
   unload() {
@@ -146,7 +227,8 @@ export class KeyBinding {
     if (isInteractiveEvent(e)) return
     e.stopPropagation()
 
-    const { keyCode, shiftKey, ctrlKey, altKey } = e
+    const { shiftKey, ctrlKey, altKey } = e
+    const keyCode = getEventKeyCode(e)
     // if (key.length === 1) key = key.toLowerCase()
     const actions: Key[] = []
 
@@ -154,7 +236,7 @@ export class KeyBinding {
     if (ctrlKey && keyCode !== keyToKeyCodeMap.Ctrl) actions.push('Ctrl')
     if (altKey && keyCode !== keyToKeyCodeMap.Alt) actions.push('Alt')
 
-    actions.push(...formatKeys((keyCodeToCode as any)[keyCode]))
+    if (keyCode) actions.push(...formatKeys((keyCodeToCode as any)[keyCode]))
 
     const mapKey = actions.join('+')
 
@@ -211,14 +293,16 @@ export class KeyBinding {
     if (isInteractiveEvent(e)) return
     e.stopPropagation()
 
-    const { keyCode, shiftKey, ctrlKey } = e
+    const { shiftKey, ctrlKey, altKey } = e
+    const keyCode = getEventKeyCode(e)
     // if (key.length === 1) key = key.toLowerCase()
     const actions: Key[] = []
 
     if (shiftKey && keyCode !== keyToKeyCodeMap.Shift) actions.push('Shift')
     if (ctrlKey && keyCode !== keyToKeyCodeMap.Ctrl) actions.push('Ctrl')
+    if (altKey && keyCode !== keyToKeyCodeMap.Alt) actions.push('Alt')
 
-    actions.push(...formatKeys((keyCodeToCode as any)[keyCode]))
+    if (keyCode) actions.push(...formatKeys((keyCodeToCode as any)[keyCode]))
 
     const mapKey = actions.join('+')
     if (this.isLockedMode && mapKey !== this.lockedKey) {

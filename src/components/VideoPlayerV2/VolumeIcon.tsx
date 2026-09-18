@@ -144,6 +144,16 @@ const VolumeIcon: FC = (props) => {
       let newVolume = Math.floor(webVideo.muted ? 0 : webVideo.volume * 100)
       newVolume = minmax(newVolume, 0, 100)
       setVolume(newVolume)
+      // The native volume control gives feedback in its slider and icon.
+      // Do not cover the video with a second, unrelated centre animation.
+      if (
+        videoPlayerRef.current?.querySelector(
+          '.fc-volume-button:is(:hover, :focus), .fc-volume-popup:not(.rc-trigger-popup-hidden)',
+        )
+      ) {
+        setVisible(false)
+        return
+      }
       eventBus.emit(PlayerEvent.volumeChanged)
     },
     webVideo,

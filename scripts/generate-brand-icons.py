@@ -13,8 +13,8 @@ CANVAS = 1024
 def brand_icon() -> Image.Image:
     image = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
     pixels = image.load()
-    top = (15, 118, 110)
-    bottom = (8, 47, 73)
+    top = (251, 114, 153)
+    bottom = (216, 75, 120)
     for y in range(CANVAS):
         ratio = y / (CANVAS - 1)
         color = tuple(round(a + (b - a) * ratio) for a, b in zip(top, bottom))
@@ -26,10 +26,10 @@ def brand_icon() -> Image.Image:
     image.putalpha(mask)
 
     draw = ImageDraw.Draw(image, "RGBA")
-    mint = (45, 212, 191, 164)
+    mint = (0, 174, 236, 255)
     white = (248, 250, 252, 255)
-    teal = (15, 118, 110, 255)
-    pale = (153, 246, 228, 255)
+    teal = (216, 75, 120, 255)
+    pale = (255, 255, 255, 255)
     draw.rounded_rectangle((208, 232, 708, 612), radius=84, fill=mint)
     draw.rounded_rectangle((316, 340, 816, 720), radius=84, fill=white)
     draw.polygon(((506, 436), (690, 548), (506, 660)), fill=teal)

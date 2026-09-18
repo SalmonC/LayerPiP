@@ -1,5 +1,6 @@
 import { addEventListener, createElement, noop } from '@root/utils'
-import { autorun } from 'mobx'
+import { autorun, comparer, reaction } from 'mobx'
+import configStore from '@root/store/config'
 import { DanmakuEngine } from '..'
 import type { DanmakuEngineInitProps } from '../DanmakuEngine'
 import Danmaku from './HtmlDanmaku'
@@ -65,10 +66,40 @@ export default class HtmlDanmakuManager extends DanmakuEngine {
     })
 
     this.bindEvent(props.media)
-    this.unlistens = [confUnlisten]
+    this.unlistens = [
+      confUnlisten,
+      reaction(
+        () => [
+          this.fontSize,
+          this.speed,
+          this.fontFamily,
+          this.fontWeight,
+          this.gap,
+          this.unmovingDanmakuSaveTime,
+          configStore.maxTunnel,
+        ],
+        () => {
+          // Coalesce slider events and rebuild at the current media time,
+          // including while paused. Do not wait for another timeupdate.
+          if (this.pendingPresentationFrame !== undefined) return
+          const win = this.container.ownerDocument.defaultView
+          if (!win) return
+          const frame = win.requestAnimationFrame(() => {
+            this.pendingPresentationFrame = undefined
+            if (this.initd) this.forceRerenderDanmaku()
+          })
+          this.pendingPresentationFrame = () => win.cancelAnimationFrame(frame)
+        },
+        { equals: comparer.structural },
+      ),
+    ]
   }
   private unlistens: noop[] = []
+  private pendingPresentationFrame?: () => void
+  private renderCurrentTime = () => {}
   onUnload() {
+    this.pendingPresentationFrame?.()
+    this.pendingPresentationFrame = undefined
     this.unbindEvent()
     this.unlistens.forEach((unlisten) => unlisten())
     this.observer.disconnect()
@@ -86,6 +117,7 @@ export default class HtmlDanmakuManager extends DanmakuEngine {
   private nowPos = 0
   private unbindEvent = () => {}
   private bindEvent(media: HTMLMediaElement) {
+    this.container.classList.toggle('paused', media.paused)
     const mediaUnbind = addEventListener(media, (el) => {
       el.addEventListener('play', () => {
         this.container.classList.remove('paused')
@@ -96,7 +128,7 @@ export default class HtmlDanmakuManager extends DanmakuEngine {
       el.addEventListener('seeking', () => {
         this.forceRerenderDanmaku()
       })
-      el.addEventListener('timeupdate', () => {
+      this.renderCurrentTime = () => {
         if (!this.danmakus.length) return
         const ctime = el.currentTime
         const toRunDanmakus: Danmaku[] = []
@@ -175,11 +207,13 @@ export default class HtmlDanmakuManager extends DanmakuEngine {
         }
 
         this.hasSeek = false
-      })
+      }
+      el.addEventListener('timeupdate', this.renderCurrentTime)
     })
 
     this.unbindEvent = () => {
       mediaUnbind()
+      this.renderCurrentTime = () => {}
     }
   }
 
@@ -208,7 +242,11 @@ export default class HtmlDanmakuManager extends DanmakuEngine {
   }
 
   override forceRerenderDanmaku(): void {
+    this.observer.disconnect()
+    this.observerMap.clear()
     super.forceRerenderDanmaku()
+    this.runningDanmakus.clear()
     this.nowPos = 0
+    if (this.initd) this.renderCurrentTime()
   }
 }

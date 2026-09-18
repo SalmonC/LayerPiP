@@ -21,10 +21,15 @@ export default class DocPIPWebProvider extends WebProvider {
   pipWindow?: Window
 
   override async onOpenPlayer() {
-    // 在标题后添加 ' - PIP'
+    if (!window.documentPictureInPicture?.requestWindow)
+      throw new Error('当前浏览器不支持增强小窗，请在设置中选择原生小窗')
+    // Title restoration also covers partial-open failures.
     const title = document.title
     const pipTitle = title + ' - PIP'
     document.title = pipTitle
+    this.addOnUnloadFn(() => {
+      if (document.title === pipTitle) document.title = title
+    })
 
     // 获取应该有的docPIP宽高
     const pipWindowConfig = await getBrowserSyncStorage(PIP_WINDOW_CONFIG)
@@ -49,8 +54,11 @@ export default class DocPIPWebProvider extends WebProvider {
       }
     }
 
+    width = Number.isFinite(width) && width > 0 ? width : 640
+    height = Number.isFinite(height) && height > 0 ? height : 360
     await sendMessage(WebextEvent.beforeStartPIP, null)
     await this.miniPlayer.init()
+    if (!this.active) throw new Error('小窗打开已取消')
     const playerEl = this.miniPlayer.playerRootEl
     if (!playerEl) {
       console.error('不正常的miniPlayer.init()，没有 playerEl', this.miniPlayer)
@@ -62,73 +70,86 @@ export default class DocPIPWebProvider extends WebProvider {
       width,
       height,
     })
+    if (!this.active) {
+      pipWindow.close()
+      throw new Error('小窗打开已取消')
+    }
     this.pipWindow = pipWindow
+    this.addOnUnloadFn(() => {
+      if (!pipWindow.closed) pipWindow.close()
+      this.pipWindow = undefined
+    })
 
     // 这里await会莫名其妙使webVideo被暂停
+    const handleOptionalPositionError = (error: unknown) => {
+      console.warn('[docPIP] optional window positioning failed', error)
+    }
     sendMessage(WebextEvent.afterStartPIP, {
       width: pipWindow.innerWidth,
-    }).then(() => {
-      switch (configStore.movePIPInOpen) {
-        case MovePIPAfterOpenType.lastPos: {
-          const [borX, borY] = getDocPIPBorderSize(pipWindow)
-          console.log('borX, borY', borX, borY)
-
-          let [realWidth, realHeight] = [width + borX, height + borY]
-
-          // 低DPR屏幕到高DPR屏幕需要缩小wh，高到低就不需要😓
-          if (
-            pipWindowConfig?.pipDPR &&
-            pipWindowConfig?.pipDPR > window.devicePixelRatio
-          ) {
-            realWidth = ~~(realWidth / pipWindowConfig?.pipDPR)
-            realHeight = ~~(realHeight / pipWindowConfig?.pipDPR)
-          }
-
-          // ! 已经确定是chrome的bug，网页里第二次打开不会按照width和height来设置窗口大小，需要自己调整
-          sendMessage(WebextEvent.updateDocPIPRect, {
-            width: realWidth,
-            height: realHeight,
-            docPIPWidth: pipWindow.innerWidth,
-            left: pipWindowConfig?.left,
-            top: pipWindowConfig?.top,
-          })
-          break
-        }
-        case MovePIPAfterOpenType.custom: {
-          const [borX, borY] = getDocPIPBorderSize(pipWindow)
-          // ! 已经确定是chrome的bug，第二次打开不会按照width和height来设置窗口大小
-          sendMessage(WebextEvent.resizeDocPIP, {
-            width: width + borX,
-            height: height + borY,
-            docPIPWidth: pipWindow.innerWidth,
-          })
-
-          this.addOnUnloadFn(
-            autorun(() => {
-              const [x, y] = (() => {
-                switch (configStore.movePIPInOpen_basePos) {
-                  case Position['topLeft']:
-                    return [0, 0]
-                  case Position['topRight']:
-                    return [screen.width - width, 0]
-                  case Position['bottomLeft']:
-                    return [0, screen.height - height]
-                  case Position['bottomRight']:
-                    return [screen.width - width, screen.height - height]
-                }
-              })()
-
-              sendMessage(WebextEvent.moveDocPIPPos, {
-                docPIPWidth: width,
-                x: x + configStore.movePIPInOpen_offsetX,
-                y: y + configStore.movePIPInOpen_offsetY,
-              })
-            }),
-          )
-          break
-        }
-      }
     })
+      .then(() => {
+        switch (configStore.movePIPInOpen) {
+          case MovePIPAfterOpenType.lastPos: {
+            const [borX, borY] = getDocPIPBorderSize(pipWindow)
+            console.log('borX, borY', borX, borY)
+
+            let [realWidth, realHeight] = [width + borX, height + borY]
+
+            // 低DPR屏幕到高DPR屏幕需要缩小wh，高到低就不需要😓
+            if (
+              pipWindowConfig?.pipDPR &&
+              pipWindowConfig?.pipDPR > window.devicePixelRatio
+            ) {
+              realWidth = ~~(realWidth / pipWindowConfig?.pipDPR)
+              realHeight = ~~(realHeight / pipWindowConfig?.pipDPR)
+            }
+
+            // ! 已经确定是chrome的bug，网页里第二次打开不会按照width和height来设置窗口大小，需要自己调整
+            void sendMessage(WebextEvent.updateDocPIPRect, {
+              width: realWidth,
+              height: realHeight,
+              docPIPWidth: pipWindow.innerWidth,
+              left: pipWindowConfig?.left,
+              top: pipWindowConfig?.top,
+            }).catch(handleOptionalPositionError)
+            break
+          }
+          case MovePIPAfterOpenType.custom: {
+            const [borX, borY] = getDocPIPBorderSize(pipWindow)
+            // ! 已经确定是chrome的bug，第二次打开不会按照width和height来设置窗口大小
+            void sendMessage(WebextEvent.resizeDocPIP, {
+              width: width + borX,
+              height: height + borY,
+              docPIPWidth: pipWindow.innerWidth,
+            }).catch(handleOptionalPositionError)
+
+            this.addOnUnloadFn(
+              autorun(() => {
+                const [x, y] = (() => {
+                  switch (configStore.movePIPInOpen_basePos) {
+                    case Position['topLeft']:
+                      return [0, 0]
+                    case Position['topRight']:
+                      return [screen.width - width, 0]
+                    case Position['bottomLeft']:
+                      return [0, screen.height - height]
+                    case Position['bottomRight']:
+                      return [screen.width - width, screen.height - height]
+                  }
+                })()
+
+                void sendMessage(WebextEvent.moveDocPIPPos, {
+                  docPIPWidth: width,
+                  x: x + configStore.movePIPInOpen_offsetX,
+                  y: y + configStore.movePIPInOpen_offsetY,
+                }).catch(handleOptionalPositionError)
+              }),
+            )
+            break
+          }
+        }
+      })
+      .catch(handleOptionalPositionError)
 
     const handleWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return
@@ -235,6 +256,10 @@ export default class DocPIPWebProvider extends WebProvider {
     })
 
     pipWindow.document.body.appendChild(playerEl)
+    // React may have resolved the keyboard owner while the player still
+    // belonged to the source page. Rebind after DOM adoption without touching
+    // the video node; calling updateVideo(sameVideo) can remove it and black out.
+    this.miniPlayer.refreshInputWindow()
 
     // docPIP有自带的样式，需要覆盖掉
     const docPIPRootStyle = createElement('style', {
