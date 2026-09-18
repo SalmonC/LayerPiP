@@ -31,7 +31,8 @@
 | 项 | 值 | 更新人 | 更新时间 |
 | --- | --- | --- | --- |
 | 工作分支 | `feature/layerpip-dual-mode` | DeepSeek | 2026-09-18 |
-| HEAD | `94a1bbc` | DeepSeek | 2026-09-18 |
+| 最近交付提交 | `94a1bbc`（release 0.2.15） | DeepSeek | 2026-09-18 |
+| 最新提交 | `git log --oneline -1`（本表不写自身提交 hash，避免自指） | DeepSeek | 2026-09-18 |
 | 工作区 | 干净（0 未提交） | DeepSeek | 2026-09-18 |
 | `package.json` 版本 | `0.2.15` | DeepSeek | 2026-09-18 |
 | 固定 `dist` 版本 | `0.2.15`（已回读） | DeepSeek | 2026-09-18 |
@@ -100,7 +101,7 @@
 
 ### 2026-09-18 · DeepSeek · 建立本同步文件
 
-- **提交**：本次提交（`AGENT_SYNC.md` + `AGENTS.md` 指针）
+- **提交**：`0274ff1`（`AGENT_SYNC.md` + `AGENTS.md` 指针）
 - **目的**：给两个 agent 一个共同的进度与占用登记处，避免并行改同一文件、重复交付、互相覆盖
 - **需要对方注意**：Codex 首次接入时请在本节上方追加一条，说明自己的身份与当前计划
 
