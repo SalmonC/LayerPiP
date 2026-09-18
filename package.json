@@ -1,6 +1,6 @@
 {
   "name": "layerpip",
-  "version": "0.2.18",
+  "version": "0.2.19",
   "license": "CC-BY-NC-4.0",
   "author": "LayerPiP contributors; based on apades/dmMiniPlayer",
   "type": "module",

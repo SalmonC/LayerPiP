@@ -26,6 +26,16 @@
   &:has(.video-action-area :focus-visible) .bottom-progress {
     opacity: 0;
   }
+  // 高能进度条只在控制栏激活时显示（与 B 站原生播放器一致）。
+  // 注意必须写在这一层：写在 .played-progress-bar 里会被编译成
+  // 「.played-progress-bar 里再嵌一个 .video-player-v2」，永远匹配不到。
+  // 拖拽进度 / 菜单打开 / 控件聚焦都等价于「激活」，这些状态下也要显示。
+  &:not(.active):not([data-menu-open]):not(
+      :has(.played-progress-bar.is-seeking)
+    ):not(:has(.video-action-area :focus-visible))
+    .fc-heatbar {
+    opacity: 0;
+  }
   .played-progress-bar {
     --progress-scale: 1;
     position: absolute;
@@ -55,10 +65,6 @@
       // 压在轨道与滑块之下，避免遮挡。
       z-index: 0;
       transition: opacity 0.2s;
-    }
-    // 与常驻底部细线保持一致：控制栏不在时不要留一条悬空的曲线。
-    .video-player-v2:not(.active) .fc-heatbar {
-      opacity: 0;
     }
     .progress-bar {
       height: 100% !important;

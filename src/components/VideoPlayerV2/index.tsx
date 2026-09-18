@@ -367,10 +367,15 @@ const VideoPlayerV2Inner = observer(
     })
 
     const handleOpenSetting = useMemoizedFn(() => {
-      // 全屏模式和docPIP内需要
-      if (isFullscreen || isDocPIP(videoPlayerRef.current)) {
-        if (!videoPlayerRef.current) return
-        window.openSettingPanel(videoPlayerRef.current)
+      const target = videoPlayerRef.current
+      // 全屏模式、Document PiP、以及任何「播放器已被移入其它 document」的情况，
+      // 都必须把设置面板渲染到播放器所在的文档，否则面板会跑回网页里，体验割裂。
+      // 这里额外用 ownerDocument 判断，而不是只依赖 isDocPIP 的 window 身份比较：
+      // 后者是跨 realm 的对象比较，时机或身份一旦对不上就会静默退回网页。
+      const inAnotherDocument = !!target && target.ownerDocument !== document
+      if (isFullscreen || inAnotherDocument || isDocPIP(target)) {
+        if (!target) return
+        window.openSettingPanel(target)
       } else {
         postMessageToTop(PostMessageEvent.openSettingPanel)
       }
