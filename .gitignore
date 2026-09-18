@@ -49,6 +49,14 @@ yarn-error.log*
 out/
 /build/
 dist/
+/dist 2/
+/dist 3/
+# Preserved build outputs kept aside for rollback ("dist 4", "dist 5", ...).
+# They are ~90MB each and must never be committed.
+/dist [0-9]*/
+
+# Playwright artifacts
+/test-results/
 
 # bpp - http://bpp.browser.market/
 keys.json
@@ -63,3 +71,9 @@ metafile-*.json
 tsup.*.bundled_*.mjs
 
 vite.client.dev.js
+
+# Local verified builds, receipts and rollback copies
+/.delivery/
+
+# Reproducible local model weights; see scripts/prepare-ai-model.mjs
+/assets/ai-models/
