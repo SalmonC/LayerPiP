@@ -31,7 +31,16 @@ const Menu: FC = observer(() => {
           void updateConfig(patch, true)
         }}
       />
-      <details className="fc-settings-details">
+      <details
+        className="fc-settings-details"
+        onToggle={(event) => {
+          const el = event.currentTarget
+          if (!el.open) return
+          // 小窗高度有限时菜单是滚动的。展开后若不把新增内容滚进可视区，
+          // 就会出现「点了展开却看不见新选项」。
+          requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest' }))
+        }}
+      >
         <summary>高级设置</summary>
 
         <label

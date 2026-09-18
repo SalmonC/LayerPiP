@@ -1,4 +1,4 @@
-import Trigger, { TriggerProps } from '@rc-component/trigger'
+import Trigger, { TriggerProps, type TriggerRef } from '@rc-component/trigger'
 import { useAppRootElRef } from '@root/hook/useAppRootEl'
 import {
   useEffect,
@@ -19,6 +19,7 @@ type Props = PropsWithChildren<{
 const Dropdown: FC<Props> = ({ playerMenu = false, menuRender, ...props }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const popupRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<TriggerRef>(null)
   const [isVisible, setVisible] = useState(false)
   const keyboardOpen = useRef(false)
   const rootRef = useAppRootElRef()
@@ -38,14 +39,31 @@ const Dropdown: FC<Props> = ({ playerMenu = false, menuRender, ...props }) => {
     })
     root.dispatchEvent(opened)
     root.dataset.menuOpen = 'true'
-    const size = () =>
-      root.style.setProperty(
-        '--fc-menu-height',
-        `${Math.max(64, root.clientHeight - 60)}px`,
-      )
+    // 菜单锚在触发按钮上方，所以可用高度就是「按钮上边缘到播放器顶部」的距离。
+    // 原来固定用 `clientHeight - 60`，在小窗里会白白浪费一截空间。
+    const size = () => {
+      const triggerTop = containerRef.current?.getBoundingClientRect().top
+      const available =
+        typeof triggerTop === 'number' && triggerTop > 0
+          ? triggerTop - 12
+          : root.clientHeight - 60
+      const next = `${Math.max(64, Math.floor(available))}px`
+      // 值没变就不要重设：本函数会被下面观察弹层尺寸的 ResizeObserver 调用，
+      // 而设置 max-height 又会改变弹层尺寸，必须避免自激循环。
+      if (root.style.getPropertyValue('--fc-menu-height') !== next)
+        root.style.setProperty('--fc-menu-height', next)
+    }
     size()
     const resize = new ResizeObserver(size)
     resize.observe(root)
+    // 弹层自身高度会变（例如弹幕菜单展开「高级设置」）。rc-trigger 不会因此重新对齐，
+    // 于是新增的选项可能落到可视区之外，看起来「展开了却看不见」，收起时位置也不回收。
+    // 这里监听弹层尺寸并主动重排。
+    const align = new ResizeObserver(() => {
+      size()
+      triggerRef.current?.forceAlign()
+    })
+    if (popupRef.current) align.observe(popupRef.current)
     const other = (event: Event) => {
       if ((event as CustomEvent).detail !== containerRef.current)
         setVisible(false)
@@ -71,6 +89,7 @@ const Dropdown: FC<Props> = ({ playerMenu = false, menuRender, ...props }) => {
     doc.defaultView?.addEventListener('blur', blur)
     return () => {
       resize.disconnect()
+      align.disconnect()
       root.removeEventListener('layerpip-menu-open', other)
       doc.removeEventListener('pointerdown', dismiss, true)
       doc.removeEventListener('keydown', escape, true)
@@ -84,6 +103,7 @@ const Dropdown: FC<Props> = ({ playerMenu = false, menuRender, ...props }) => {
   }, [isVisible, playerMenu])
   return (
     <Trigger
+      ref={triggerRef}
       action={['hover', 'click']}
       mouseEnterDelay={0.12}
       mouseLeaveDelay={0.2}

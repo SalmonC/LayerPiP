@@ -6,8 +6,8 @@ import { PlayerEvent } from '@root/core/event'
 import { isDocPIP } from '@root/utils'
 import Dropdown from '../../Dropdown'
 import { SwitchField } from '../../PlayerSettingsFields'
-import ActionButton from './ActionButton'
 import vpContext from '../context'
+import ActionButton from './ActionButton'
 
 export default observer(function PlayerSettingsMenu({
   onSettings,
@@ -27,14 +27,8 @@ export default observer(function PlayerSettingsMenu({
         <Observer>
           {() => (
             <div className="fc-menu fc-quick-settings">
-              <SwitchField
-                label="历史字幕"
-                checked={configStore.subtitle_historyEnabled}
-                onChange={(value) => {
-                  void updateConfig({ subtitle_historyEnabled: value }, true)
-                }}
-              />
-
+              {/* 「历史字幕」开关不放在这里：控制栏已有独立的 SubtitleHistoryButton，
+                  两处同功能入口会让用户以为是两个设置。 */}
               <SwitchField
                 label="滚轮调节音量"
                 checked={!configStore.disable_scrollToChangeVolume}
