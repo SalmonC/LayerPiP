@@ -4,6 +4,7 @@ import { createElement, dq, tryCatch, wait } from '@root/utils'
 import EventSwitcher from '@root/utils/EventSwitcher'
 import playerConfig from '@root/store/playerConfig'
 import { checkIsLive } from '@root/utils/video'
+import { DOC_PIP_QUICK_HIDE_SIZE } from '@root/utils/docPIP'
 import { SettingDanmakuEngine } from '@root/store/config/danmaku'
 import WebextEvent from '@root/shared/webextEvent'
 import { DocPIPRenderType, PipMode, Position } from '@root/types/config'
@@ -354,17 +355,26 @@ export default abstract class WebProvider
             const docWin = window.documentPictureInPicture.window
             if (this.isQuickHiding) {
               docWin.document.body.removeChild(coverDom)
-              docWin.resizeTo(lastW, lastH)
+              // ! Document PiP 窗口内的 resizeTo 需要瞬时激活，否则抛
+              // ! NotAllowedError: resizeTo() requires user activation in document picture-in-picture。
+              // ! 一旦抛出，下面的恢复逻辑会被整段跳过，窗口会卡在快速隐藏尺寸且 isQuickHiding 停在 true。
+              // ! 因此改走 background 的 chrome.windows.update，与"隐藏"路径保持对称。
+              try {
+                await sendMessage(WebextEvent.updateDocPIPRect, {
+                  width: lastW,
+                  height: lastH,
+                  left: lastX,
+                  top: lastY,
+                  docPIPWidth: docWin.innerWidth,
+                })
+              } catch (error) {
+                console.warn('[docPIP] 恢复小窗尺寸失败', error)
+              }
               if (!lastIsPause) {
                 videoEl.play()
               }
 
               await wait(10)
-              await sendMessage(WebextEvent.moveDocPIPPos, {
-                x: lastX,
-                y: lastY,
-                docPIPWidth: docWin.innerWidth,
-              })
               this.isQuickHiding = false
             } else {
               lastX = docWin.screenLeft
@@ -377,8 +387,8 @@ export default abstract class WebProvider
               docWin.document.body.appendChild(coverDom)
               const screen = docWin.screen
 
-              const minWidth = 240,
-                minHeight = 52
+              const minWidth = DOC_PIP_QUICK_HIDE_SIZE.width,
+                minHeight = DOC_PIP_QUICK_HIDE_SIZE.height
               const [left, top] = (() => {
                 switch (configStore.quickHide_pos) {
                   case Position.topLeft:

@@ -2,7 +2,7 @@ import { PIP_WINDOW_CONFIG } from '@root/shared/storeKey'
 import WebextEvent from '@root/shared/webextEvent'
 import configStore, { videoBorderType } from '@root/store/config'
 import { calculateNewDimensions, createElement } from '@root/utils'
-import { getDocPIPBorderSize } from '@root/utils/docPIP'
+import { getDocPIPBorderSize, isUsableDocPIPSize } from '@root/utils/docPIP'
 import {
   getBrowserSyncStorage,
   setBrowserSyncStorage,
@@ -33,8 +33,21 @@ export default class DocPIPWebProvider extends WebProvider {
 
     // 获取应该有的docPIP宽高
     const pipWindowConfig = await getBrowserSyncStorage(PIP_WINDOW_CONFIG)
-    let width = pipWindowConfig?.width ?? this.webVideo.clientWidth,
-      height = pipWindowConfig?.height ?? this.webVideo.clientHeight
+    // 只有"可用"的几何才会被采用：快速隐藏留下的 240×52 或创建过程中的中间态一旦被写入，
+    // 会让之后每次打开都极小。忽略它既能挡住坏值，也能让已经写坏的历史值自愈。
+    const usableSavedSize =
+      pipWindowConfig &&
+      isUsableDocPIPSize(pipWindowConfig.width, pipWindowConfig.height)
+        ? pipWindowConfig
+        : undefined
+    if (pipWindowConfig && !usableSavedSize) {
+      console.warn(
+        '[docPIP_WH] 忽略不可用的已保存窗口尺寸，回退到视频尺寸',
+        pipWindowConfig,
+      )
+    }
+    let width = usableSavedSize?.width ?? this.webVideo.clientWidth,
+      height = usableSavedSize?.height ?? this.webVideo.clientHeight
 
     console.log('[docPIP_WH] pipWindowConfig', pipWindowConfig)
     // cw / ch = vw / vh
@@ -96,12 +109,14 @@ export default class DocPIPWebProvider extends WebProvider {
             let [realWidth, realHeight] = [width + borX, height + borY]
 
             // 低DPR屏幕到高DPR屏幕需要缩小wh，高到低就不需要😓
+            // 只有采用了已保存尺寸时，保存当时的 DPR 才与这次要设置的尺寸相关；
+            // 忽略坏几何、回退到视频尺寸时不能套用旧的 DPR 修正，否则会再缩一次。
             if (
-              pipWindowConfig?.pipDPR &&
-              pipWindowConfig?.pipDPR > window.devicePixelRatio
+              usableSavedSize?.pipDPR &&
+              usableSavedSize.pipDPR > window.devicePixelRatio
             ) {
-              realWidth = ~~(realWidth / pipWindowConfig?.pipDPR)
-              realHeight = ~~(realHeight / pipWindowConfig?.pipDPR)
+              realWidth = ~~(realWidth / usableSavedSize.pipDPR)
+              realHeight = ~~(realHeight / usableSavedSize.pipDPR)
             }
 
             // ! 已经确定是chrome的bug，网页里第二次打开不会按照width和height来设置窗口大小，需要自己调整
@@ -228,15 +243,25 @@ export default class DocPIPWebProvider extends WebProvider {
           pipWindow.innerWidth + configStore.saveWidthOnDocPIPCloseOffset,
           pipWindow.innerHeight + configStore.saveHeightOnDocPIPCloseOffset,
         ]
-        console.log('[docPIP_WH] save width and height', { width, height })
-        setBrowserSyncStorage(PIP_WINDOW_CONFIG, {
-          height,
-          width,
-          left: pipWindow.screenLeft,
-          top: pipWindow.screenTop,
-          mainDPR: window.devicePixelRatio,
-          pipDPR: pipWindow.devicePixelRatio,
-        })
+        // ! isQuickHiding 只是第一道闸门：源页面卸载/导航时 WebProvider.onUnload() 会先把它置回 false，
+        // ! 之后本窗口才关闭并触发 pagehide，于是快速隐藏的 240×52 会被当成"上次窗口大小"存下来，
+        // ! 导致以后每次打开都极小。所以这里必须再按实际尺寸判断一次，低于阈值的几何一律不保存。
+        if (isUsableDocPIPSize(width, height)) {
+          console.log('[docPIP_WH] save width and height', { width, height })
+          setBrowserSyncStorage(PIP_WINDOW_CONFIG, {
+            height,
+            width,
+            left: pipWindow.screenLeft,
+            top: pipWindow.screenTop,
+            mainDPR: window.devicePixelRatio,
+            pipDPR: pipWindow.devicePixelRatio,
+          })
+        } else {
+          console.warn('[docPIP_WH] 跳过保存不可用的窗口尺寸', {
+            width,
+            height,
+          })
+        }
       }
       this.emit(PlayerEvent.close)
       pipWindow.removeEventListener('wheel', handleWheel, { capture: true })
