@@ -1,5 +1,45 @@
 # Progress Log
 
+## 2026-09-18 修复小窗默认尺寸极小 + 建立并发 Git 规范
+
+用户报告「每次打开小窗，默认尺寸都非常小」。已完成根因定位、修复与 Git 整理。**未构建、未部署 `dist`、未安装、未重新加载**。
+
+### 根因
+
+初始尺寸取自 `storage.sync` 的 `LAYERPIP_WINDOW_CONFIG_V1`，而它可能被写成「快速隐藏」的 240×52：
+
+1. `quickHideToggle` 把窗口缩到 240×52；
+2. `pagehide` 保存窗口几何时只有 `isQuickHiding` 一道闸门，但 `WebProvider.onUnload()` 会先把 `isQuickHiding` 置回 `false`（`WebProvider.ts:161`）。源页面卸载/导航时正是这个先后顺序，于是 240×52 被当成「上次窗口大小」存下；
+3. 该键没有任何重置入口，一旦写坏，之后每次打开都是 240×52。
+
+实测补充：Document PiP 窗口内的 `resizeTo` 需要瞬时激活，直接抛
+`NotAllowedError: resizeTo() requires user activation in document picture-in-picture`；
+而快速隐藏的「恢复」正是用它，异常会让后续恢复逻辑整段跳过。另实测 `requestWindow({width,height})` 的尺寸提示会被 Chrome 完全忽略，真正生效的是后台 `chrome.windows.update`。
+
+### 修复（commit `3a1be1d`）
+
+- 新增 `isUsableDocPIPSize()` 与 `DOC_PIP_MIN_USABLE_SIZE`（320×180）、`DOC_PIP_QUICK_HIDE_SIZE`（240×52，单一来源）；
+- **保存前**校验，低于阈值不写入；**读取时**同样校验，坏值忽略并回退到视频尺寸 → 已写坏的历史值可自愈，无需用户清空扩展存储；
+- DPR 修正只在采用已保存尺寸时套用，避免回退时再缩一次；
+- 快速隐藏的恢复改走后台 `chrome.windows.update`（与隐藏路径对称）并加 `try/catch` 保证状态复位。
+
+验证：改动文件 `tsc` 无新增诊断（全仓仍为既有 92 条错误）；改动文件 eslint 通过（`WebProvider.ts` 中其余 lint 报错为改动前既有）。
+
+### Git 整理（本轮新增）
+
+工作区此前有 **122 个未提交改动**（对应已交付的 0.2.12–0.2.14）与 48 个未跟踪文件，其中一个 `git checkout .` 即可全部丢失。已处理：
+
+- `288ae6f` 忽略 `dist N/` 备份产物（各约 93MB）与 `test-results/`；
+- `cc93159` 把既有改动固化为检查点（128 个文件，原样快照，不含功能变更）；
+- `3a1be1d` 本次修复（3 个文件）；
+- 标签 `checkpoint/0.2.14`、`fix/docpip-default-size`；非破坏性快照 ref `checkpoint/wip-20260918-152142`（改动前状态，保留作兜底）；
+- 工作区从 122 个未提交文件变为 **0**；
+- 在 `AGENTS.md` 新增「Git rules for concurrent agents」，约定与 Codex 并发修改时的规则（禁止宽泛暂存、禁止改写共享历史、禁止切换分支、大改动前先做非破坏性快照）。
+
+未提交时**未**包含 `dist` 回退产物、`.delivery/`、`test-results/`；这些文件仍在磁盘上，未被删除。
+
+待用户实机验收：关闭小窗后再打开，尺寸应为上次的正常尺寸；使用过「快速隐藏」后再打开也不应变成极小。
+
 ## 2026-09-17 回应独立审阅并修正两份实施文档（未实施）
 
 用户在 `docs/new-feature-report-review-2026-09-17.md` 提供了 Codex 对两份实施文档的独立审阅。逐条核对后：**Codex 指出的硬缺陷全部成立**，我没有任何一条能反驳；分歧只在产品语义与 P0 边界。
