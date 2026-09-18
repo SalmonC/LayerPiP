@@ -1,5 +1,11 @@
 # LayerPiP delivery rules
 
+> **开工前必读 / 收工前必写：[`AGENT_SYNC.md`](./AGENT_SYNC.md)。**
+> 这个工作区可能同时被多个 agent 修改（DeepSeek Harness 与 Codex）。
+> 任何版本相关问题——改了哪些文件、提交 hash、标签、构建与交付的版本和哈希、做过哪些 git 操作——
+> 都必须登记到 `AGENT_SYNC.md`：开工前在该文件的「进行中占用」登记，收工后刷新「当前状态」并在「变更日志」顶部追加一条，然后**单独提交该文件**。
+> 动手前先确认没有人正在改你要改的文件；同一文件的改动不要并行。
+
 Read `PROJECT_IDENTITY.md` for identity and delivery boundaries.
 
 - The user has authorized future reviewed updates to be built and delivered to the repository-root `dist` automatically. This is the permanent unpacked extension path.
