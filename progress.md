@@ -1,5 +1,35 @@
 # Progress Log
 
+## 2026-09-18 特性 1：高能进度条 + 「已看」双色着色，交付 0.2.16
+
+按 `docs/high-energy-progress-bar-plan.md` 实施。提交 `6c0dde9`；固定 `dist` 已构建并替换为 **0.2.16**（SHA-256 `b370e5c5abde77a48bcb091d9c902b226f1375a2c9d86321711e1f770d79c778`）。**未安装、未重新加载**；0.2.15 的 dist 已由构建脚本自动备份为 `.delivery/rollback-0.2.15-2026-09-18T08-21-12-704Z` 与 `safety-0.2.15-…`。
+
+### 实现内容
+
+- **F1 已看双色（所有视频生效）**：`src/core/HighEnergyBar/controller.ts` 用 `HTMLMediaElement.played` 采集——它的语义就是「该资源实际播放过的区间」，跳过/拖动经过的区间不会被标记。这同时避开了早期伪代码的两个坑（比例与秒混用、`seeking` 时把目的时间当段尾）。`played` 换源会重置且不持久化，因此每次 `timeupdate` 读一遍并入内存、换 cid 时才落盘，并用 `emptied`/`loadstart` 挂起采集，避免新媒体源的区间被算进旧 cid。
+- **F2 官方曲线（仅有数据时）**：`src/api/bilibili/pbp.ts` 取 `bvc.bilivideo.com/pbp/data`，带 `r=loader`、`credentials: 'omit'`，解析**顶层 `modules`**（官方读 `res.data.modules` 是它自家 HTTP 客户端包的层，直连 fetch 照抄会把有数据的视频误判成无曲线）。「正常无数据」与「412/网络/非法响应」分成两种状态，只有前者可负缓存。
+- **渲染**：`HeatBarOverlay.tsx` 挂在 `.played-progress-bar` 内，因此自动出现在增强小窗；`pointer-events: none` 不改变 seek 命中区；主轨道保持原样不动。有曲线时画弹幕密度面积（未看白 20%、已看主题色裁剪），没有曲线时退化成底部纯色带，保证「无论有没有原生热力条都生效」。
+- **持久化**：按 cid 分键存 `chrome.storage.local`（读-并-写做并集，避免并发覆盖），带 cid 上限淘汰（200）。纯函数在 `src/utils/highEnergyBar/geometry.ts`，公式逐项照抄官方。
+- 配置只加两个概念：`highEnergyBar_show` / `highEnergyBar_curve`；文案补进 7 个语言（zh_CN/zh_TW/en 已翻译，ja/ko/fr/es 英文占位待译）。
+
+### 验证
+
+| 项 | 结果 |
+| --- | --- |
+| 几何对拍（与独立照官方源码重写的参考实现对拍） | **23/23 通过** |
+| `tsc` 全仓 | 92 条 == 基线；本次改动文件 0 条 |
+| eslint（改动文件） | 通过 |
+| 真实浏览器冒烟（加载 `dist` 的持久化上下文） | 曲线取数并渲染成功（clipPath `d` 长度 3511）、**0 控制台错误** |
+| 跳过区间不被误记 | 跳到 60% 再播后 `played=[[0.2,14.9],[127.8,139.5]]`，watched 路径两段且第二段正好从 x=600 开始 ✅ |
+| 跨会话持久化 | 重开会话后 watched 路径仍有两段 ✅ |
+
+### 遗留
+
+1. **待用户实机验收**：重新加载扩展 + 刷新 B 站页面，确认曲线形态、已看配色与位置。
+2. `.fc-heatbar` 的 `bottom/height` 是按估算给的，需与控制栏「常驻 / 贴底细线」两种状态一起做视觉核对。
+3. `ja/ko/fr/es` 文案为英文占位，待翻译。
+4. 回退基线：标签 `baseline/0.2.15`（→ `6fd1c42`），回退方法见 `AGENT_SYNC.md` 第 1 节。
+
 ## 2026-09-18 修复小窗默认尺寸极小 + 建立并发 Git 规范
 
 用户报告「每次打开小窗，默认尺寸都非常小」。已完成根因定位、修复、Git 整理，并构建交付 **0.2.15**。**未安装、未重新加载、未提交 `dist`**。

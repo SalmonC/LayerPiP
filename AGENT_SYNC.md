@@ -10,10 +10,10 @@
 
 ## 1. 当前状态
 
-- 版本（package.json / dist）：`0.2.15` / `0.2.15`
-- dist SHA-256：`74cf68734ecf4bd65988b0f4c802e13633681f7d47d69b277726c4d382814dce`（已用构建脚本同一算法独立回读，与收据一致）
-- 最近交付提交：`94a1bbc`（release 0.2.15）
-- **回退基线**：标签 `baseline/0.2.15` → `6fd1c42`（用户指定的"可用版本"；实机验收仍待确认）
+- 版本（package.json / dist）：`0.2.16` / `0.2.16`
+- dist SHA-256：`b370e5c5abde77a48bcb091d9c902b226f1375a2c9d86321711e1f770d79c778`（构建脚本自报；未再独立回读）
+- 最近交付提交：`6c0dde9`（feat(highEnergyBar) 0.2.16）
+- **回退基线**：标签 `baseline/0.2.15` → `6fd1c42`（用户指定的"可用版本"）
 - 工作区：干净
 - 标签：`baseline/0.2.15`、`checkpoint/0.2.14`、`fix/docpip-default-size`
 - 扩展 ID：`jnonlboihmjeahenhlbkjdijicakfnjj`（不变）
@@ -21,25 +21,22 @@
 
 **回退方法**（改出问题就退回 0.2.15）：
 1. 代码：`git checkout baseline/0.2.15 -- .`；
-2. 产物：下一次构建会先把当前 dist 备份为 `.delivery/rollback-0.2.15-<时间戳>` 与 `safety-0.2.15-<时间戳>`，需要时把该目录内容复制回 `dist`（**不要删除任何回退目录**）。
+2. 产物：0.2.15 的 dist 已由 0.2.16 构建自动备份为
+   `.delivery/rollback-0.2.15-2026-09-18T08-21-12-704Z` 与
+   `.delivery/safety-0.2.15-2026-09-18T08-21-12-704Z`，需要时把该目录内容复制回 `dist`
+   （**不要删除任何回退目录**）。
 
 ## 2. 中断点 ← 接手时先看这里
 
 > 没有就写「无」。这是本文件最有价值的一节。
 
-**进行中：特性 1「高能进度条 + 已看双色着色」开始实施（DeepSeek，2026-09-18）**
+**无。** 特性 1（高能进度条 + 已看双色）已实现、已构建交付 **0.2.16**、已提交，工作区干净。
 
-- **在做什么**：按 `docs/high-energy-progress-bar-plan.md` 实施。
-  - F1：进度条上「已看」区间用主题色、「未看」灰白，**与视频有没有热力条无关**
-  - F2：有官方数据时在进度条上方绘制高能曲线（弹幕密度）
-- **计划顺序**：P0 纯函数与接口 → P1 已看双色 → P2 官方曲线
-- **计划新增/改动文件**：
-  - 新增：`src/utils/highEnergyBar/*`（纯函数）、`src/api/bilibili/pbp.ts`（取数）、`src/core/HighEnergyBar/*`（已看区间采集与持久化）、`src/background/watchedRanges.ts`（独立 IndexedDB）、`src/components/VideoPlayerV2/bottomPanel/HeatBarOverlay.tsx`（渲染）
-  - 改动：`PlayerProgressBar.tsx/.less`（挂载覆盖层）、`BilibiliVideoProvider`（绑定 cid 与 tracker）、`src/store/config/*`（配置项）、`src/locales/*.json`（文案）
-- **接手提示**：若本轮中断，先看上面「计划新增/改动文件」里哪些已存在；`git status` 与 `git log` 对照；**不要**直接删掉半成品文件。
-- **关键前提**（详见实施文档与审阅回应）：已看区间用 `HTMLMediaElement.played` 采集，**不要**自己按时间采样；`played` 在换源时会重置，保存必须在换源前快照；接口必须带 `r=loader`，且响应顶层是 `modules`（不是 `data.modules`）。
-
-> 本轮之前的状态：无半成品，0.2.15 交付保留，实机验收仍待用户确认。
+尚未完成的是**用户实机验收**与**视觉细节**：
+- 需要重新加载扩展 + 刷新 B 站页面，确认曲线形态、已看配色与位置符合预期；
+- 覆盖层的 `bottom/height`（`PlayerProgressBar.less` 里 `.fc-heatbar`）是按估算给的，
+  需要和「控制栏常驻 / 贴底细线」两种状态一起做一次视觉核对；
+- `ja/ko/fr/es` 四个语言的文案目前是英文占位，待翻译。
 
 ---
 
@@ -56,6 +53,23 @@
 - 验证：
 - 遗留：
 ```
+
+### 2026-09-18 · DeepSeek · 实施特性 1「高能进度条 + 已看双色」并交付 0.2.16
+
+- **做了什么**：按 `docs/high-energy-progress-bar-plan.md` 实现特性 1。
+  - 新增 `src/utils/highEnergyBar/geometry.ts`（归一化 / 贝塞尔路径 / 区间并集 / 比例换算 / 峰值降采样）
+  - 新增 `src/api/bilibili/pbp.ts`（取数，带 `r=loader`，解析顶层 `modules`，区分 `none` 与 `error`）
+  - 新增 `src/core/HighEnergyBar/{store,controller}.ts`（展示状态 + `played` 采集 + 按 cid 持久化 + 曲线取数）
+  - 新增 `src/components/VideoPlayerV2/bottomPanel/HeatBarOverlay.tsx`
+  - 改动：`PlayerProgressBar.tsx/.less`（挂覆盖层 + `.fc-heatbar` 样式）、`web-provider/bilibili/video/index.ts`（绑定 aid/cid）、`shared/storeKey.ts`、`store/config/index.tsx`、7 个语言文件
+- **提交**：`6c0dde9`（特性 + 版本号，独立提交）
+- **git 操作**：只 stage 本次相关路径，提交前用 `git diff --cached --name-only` 核对无回退产物、无他人文件。未 rebase / amend / reset / 切分支
+- **交付**：**0.2.16** 已构建并替换 `dist`；SHA-256 `b370e5c5abde77a48bcb091d9c902b226f1375a2c9d86321711e1f770d79c778`；构建脚本已自动备份 0.2.15 到 `.delivery/rollback-0.2.15-2026-09-18T08-21-12-704Z` 与 `safety-0.2.15-…`
+- **验证**：
+  - 几何与「独立照官方源码重写的参考实现」逐字符串对拍，**23/23 通过**
+  - `tsc` 全仓 92 条 == 基线（改动文件 0 条）；改动文件 eslint 通过
+  - **真实浏览器冒烟（加载 `dist` 的持久化上下文）**：曲线取数成功并渲染（clipPath d 长度 3511）、0 控制台错误；跳到 60% 再播后 `played=[[0.2,14.9],[127.8,139.5]]`，watched 路径出现两段且第二段正好从 x=600 开始 —— **跳过区间没有被误记为已看**；重开会话后 watched 路径仍有两段，确认**跨会话持久化生效**
+- **遗留**：① 待用户实机验收（视觉与交互）；② `.fc-heatbar` 的 `bottom/height` 是按估算给的，需与控制栏两种状态一起做视觉核对；③ `ja/ko/fr/es` 文案是英文占位待译。回退基线与方法见「1. 当前状态」
 
 ### 2026-09-18 · Codex · 确认交接规则与 0.2.15 基线
 
