@@ -1,5 +1,54 @@
 # Progress Log
 
+## 2026-09-18 热力条跟随控制栏显隐 + 设置面板落点加固，交付 0.2.19
+
+用户报两个问题。提交 `94d4055`；`dist` 已构建并替换为 **0.2.19**（SHA-256 `41e4a52908623d3574a28a1e68483acfb0d247a42931043537006b1c90bd1dac`）。
+
+### 问题 1：热力条只在控制栏激活时显示（与 B 站原生一致）
+
+**根因**：上一轮那条规则**嵌错层级**。写在 `.played-progress-bar {}` 里：
+
+```less
+.video-player-v2 .played-progress-bar .video-player-v2:not(.active) .fc-heatbar  /* 编译结果 */
+```
+
+要求在进度条内部再嵌一个播放器根节点，**永远匹配不到**，所以规则是死的，热力条一直显示。
+
+**修复**：移到 `.video-player-v2` 这一层，并把「拖拽进度 / 菜单打开 / 控件聚焦」这些等价于激活的状态排除：
+
+```less
+.video-player-v2:not(.active):not([data-menu-open])
+  :not(:has(.played-progress-bar.is-seeking))
+  :not(:has(.video-action-area :focus-visible)) .fc-heatbar { opacity: 0 }
+```
+
+### 问题 2：小窗里点「更多播放设置」面板跑到网页
+
+**在 0.2.18 上未能复现**。实测面板完整渲染在小窗内：阴影根存在、`shadowRoot.textContent` 154 字、宿主尺寸等于小窗内尺寸，网页 `document` 里没有该宿主。
+
+因此本轮只做**防御性加固**，不改既有行为。原实现：
+
+```ts
+if (isFullscreen || isDocPIP(videoPlayerRef.current)) { window.openSettingPanel(videoPlayerRef.current) }
+else { postMessageToTop(PostMessageEvent.openSettingPanel) }   // ← 渲染到网页
+```
+
+`isDocPIP` 是跨 realm 的 window 身份比较（`window.top.documentPictureInPicture.window === tarWin`），时机或身份对不上就**静默**走 `else`，把面板渲染到网页——正是用户描述的割裂现象。现在额外判断 `target.ownerDocument !== document`：只要播放器已被移入其它 document，就直接渲染到那个文档。
+
+### 验证
+
+| 项 | 结果 |
+| --- | --- |
+| 控制栏未激活时热力条 `opacity` | `0`（隐藏）✅ |
+| 手动加回 `.active` 后 | `1`（显示）✅ |
+| 设置面板回归 | 仍在小窗内（网页 = false，内容长度 154）✅ |
+| 控制台错误 | 0 |
+| `tsc` / eslint | 92 条 == 基线 / 改动文件通过 |
+
+### 遗留
+
+**问题 2 需用户在新版本上复测**。若仍出现，需要提供：扩展版本、具体点击路径（小窗控制栏齿轮→更多播放设置？网页浮动入口齿轮？字幕菜单→字幕设置与视频关联？）、当时是增强小窗还是原生小窗。
+
 ## 2026-09-18 已看区间改为优先同步 B 站官方记录，交付 0.2.18
 
 用户反馈：热力条有了，但已看着色没和 B 站自带的同步。原因是 0.2.16 只用我们自己采集的 `played`，完全没读 B 站自己的已看记录，所以第一次打开某个视频时全是灰的。
