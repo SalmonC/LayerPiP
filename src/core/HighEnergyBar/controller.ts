@@ -12,6 +12,7 @@ import {
 } from '@root/utils/storage'
 import { mergeRanges } from '@root/utils/highEnergyBar/geometry'
 import Browser from 'webextension-polyfill'
+import { readOfficialWatchedRanges } from './officialWatched'
 import store from './store'
 
 /** 落盘节流：内存里的区间随时更新，写存储不必那么频繁。 */
@@ -37,7 +38,12 @@ const CURVE_RETRY_INTERVAL_MS = 30_000
 class HighEnergyBarController {
   private video: HTMLVideoElement | null = null
   private cid = ''
-  private ranges: [number, number][] = []
+  /** 我们自己采集到的已看区间（会持久化）。 */
+  private ownRanges: [number, number][] = []
+  /** 从 B 站 `pbp3` 只读来的已看区间（不持久化、不回写）。 */
+  private officialRanges: [number, number][] = []
+  /** 已经为哪个 cid 读过官方记录；官方数据需要 duration，可能要在 durationchange 后补读。 */
+  private officialLoadedFor = ''
   /** 媒体源正在切换：暂存停止采集，等新的 identity 到达。 */
   private suspended = false
   private persistTimer: ReturnType<typeof setTimeout> | null = null
@@ -91,8 +97,9 @@ class HighEnergyBarController {
       index.filter((entry) => entry.cid !== cid),
     )
     if (cid === this.cid) {
-      this.ranges = []
-      store.setWatched([])
+      this.ownRanges = []
+      // 官方记录在页面源的 pbp3 里，只读、不由我们清除。
+      this.publish()
     }
   }
 
@@ -101,14 +108,51 @@ class HighEnergyBarController {
     await this.persist()
     this.generation++
     this.cid = cid
-    this.ranges = []
+    this.ownRanges = []
+    this.officialRanges = []
+    this.officialLoadedFor = ''
     this.suspended = false
     store.reset(cid)
     if (!cid) return
+
     const record = await getBrowserLocalStorage(watchedRangesKey(cid))
-    // 读回来也做一次并集：官方 pbp 缓存里有未合并的重叠区间，我们自己的历史数据同理。
-    this.ranges = mergeRanges(record?.ranges ?? [], MERGE_TOLERANCE_SEC)
-    store.setWatched(this.ranges)
+    // 读回来也做一次并集：我们自己的历史数据可能有相邻/重叠碎片。
+    this.ownRanges = mergeRanges(record?.ranges ?? [], MERGE_TOLERANCE_SEC)
+    this.publish()
+
+    // 官方记录需要 duration 才能把比例换算成秒；此时可能还没拿到，交给 durationchange 重试。
+    void this.loadOfficialRanges()
+  }
+
+  /**
+   * 读取 B 站自己的已看记录。
+   *
+   * 需求是「视频自己有已播放记录就同步，没有才用自己的」，所以官方数据是**优先来源**：
+   * 它与 B 站热力条的着色一致；我们自己的记录只作为补充（例如只在小窗里看过、
+   * 或 B 站热力条关闭时留下的观看）。
+   * 官方数据只读、不写回、也不并入我们自己的存储。
+   */
+  private async loadOfficialRanges() {
+    const cid = this.cid
+    if (!cid || this.officialLoadedFor === cid) return
+    const duration = this.video?.duration ?? 0
+    if (!Number.isFinite(duration) || duration <= 0) return
+
+    this.officialLoadedFor = cid
+    const ranges = await readOfficialWatchedRanges(cid, duration)
+    if (cid !== this.cid) return
+    this.officialRanges = mergeRanges(ranges, MERGE_TOLERANCE_SEC)
+    this.publish()
+  }
+
+  /** 把「官方 ∪ 自己」的结果推给渲染层。 */
+  private publish() {
+    store.setWatched(
+      mergeRanges(
+        [...this.officialRanges, ...this.ownRanges],
+        MERGE_TOLERANCE_SEC,
+      ),
+    )
   }
 
   private readPlayed() {
@@ -123,14 +167,17 @@ class HighEnergyBarController {
       return
     }
     if (ranges.length === 0) return
-    const merged = mergeRanges([...this.ranges, ...ranges], MERGE_TOLERANCE_SEC)
+    const merged = mergeRanges(
+      [...this.ownRanges, ...ranges],
+      MERGE_TOLERANCE_SEC,
+    )
     // 内容没变就不要触发渲染。
-    if (merged.length === this.ranges.length) {
+    if (merged.length === this.ownRanges.length) {
       let same = true
       for (let i = 0; i < merged.length; i++) {
         if (
-          merged[i][0] !== this.ranges[i][0] ||
-          merged[i][1] !== this.ranges[i][1]
+          merged[i][0] !== this.ownRanges[i][0] ||
+          merged[i][1] !== this.ownRanges[i][1]
         ) {
           same = false
           break
@@ -138,8 +185,8 @@ class HighEnergyBarController {
       }
       if (same) return
     }
-    this.ranges = merged
-    store.setWatched(merged)
+    this.ownRanges = merged
+    this.publish()
   }
 
   private schedulePersist() {
@@ -156,16 +203,17 @@ class HighEnergyBarController {
       this.persistTimer = null
     }
     const cid = this.cid
-    if (!cid || this.ranges.length === 0) return
+    // 只持久化我们自己采集到的部分；官方 `pbp3` 的数据只读、不回写。
+    if (!cid || this.ownRanges.length === 0) return
 
     try {
       // 读-并-写：即使同一 cid 同时有别的标签页在写，并集也不会丢区间。
       const existing = await getBrowserLocalStorage(watchedRangesKey(cid))
       const merged = mergeRanges(
-        [...(existing?.ranges ?? []), ...this.ranges],
+        [...(existing?.ranges ?? []), ...this.ownRanges],
         MERGE_TOLERANCE_SEC,
       )
-      if (cid === this.cid) this.ranges = merged
+      if (cid === this.cid) this.ownRanges = merged
       await setBrowserLocalStorage(watchedRangesKey(cid), {
         ranges: merged,
         updatedAt: Date.now(),
@@ -215,6 +263,9 @@ class HighEnergyBarController {
   }
   private onDurationChange = () => {
     store.setDuration(this.video?.duration ?? 0)
+    // 官方已看记录存的是比例，需要 duration 才能换算成秒；
+    // 切换 cid 时若还不知道时长，就在这里补读一次。
+    void this.loadOfficialRanges()
   }
   private onPauseOrEnded = () => {
     if (this.suspended) return
