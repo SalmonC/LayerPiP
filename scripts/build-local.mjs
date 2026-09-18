@@ -14,13 +14,15 @@ fs.mkdirSync(delivery, { recursive: true })
 const lock = path.join(delivery, 'build.lock')
 fs.mkdirSync(lock) // Concurrent builds must not replace each other's output.
 
-// `dist 2` is a verified retained 0.2.7 artifact, not development source.
-// `dist 3` is a primary-agent-verified retained 0.2.9 artifact, not development source.
-const excluded = new Set(['.git', '.delivery', 'dist', 'dist 2', 'dist 3', 'node_modules', '.DS_Store'])
+// `dist 2`, `dist 3`, … are retained rollback artifacts (tens of MB each), not development
+// source. Match them by pattern: a fixed list silently stops covering newly kept copies
+// (`dist 4`, `dist 5`, …) and then every build copies and hashes them.
+const excluded = new Set(['.git', '.delivery', 'dist', 'node_modules', '.DS_Store'])
+const isExcluded = (name) => excluded.has(name) || /^dist \d+$/.test(name)
 function inputs(dir = root, prefix = '') {
   const result = {}
   for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (excluded.has(item.name) || item.name.startsWith('metafile-')) continue
+    if (isExcluded(item.name) || item.name.startsWith('metafile-')) continue
     const relative = path.join(prefix, item.name)
     const full = path.join(dir, item.name)
     if (item.isDirectory()) Object.assign(result, inputs(full, relative))
@@ -48,10 +50,10 @@ try {
   const stage = path.join(delivery, `build-${version}-${stamp}`)
   fs.mkdirSync(stage)
   for (const item of fs.readdirSync(root)) {
-    if (excluded.has(item)) continue
+    if (isExcluded(item)) continue
     fs.cpSync(path.join(root, item), path.join(stage, item), {
       recursive: true,
-      filter: (source) => !excluded.has(path.basename(source)),
+      filter: (source) => !isExcluded(path.basename(source)),
     })
   }
   fs.symlinkSync(path.join(root, 'node_modules'), path.join(stage, 'node_modules'), 'dir')
