@@ -1,111 +1,43 @@
-# 弹幕画中画播放器
-<div align="center">
+# 叠映 LayerPiP
 
-[<img src="https://img.shields.io/chrome-web-store/v/nahbabjlllhocabmecfjmcblchhpoclj?label=chrome" />](https://chrome.google.com/webstore/detail/nahbabjlllhocabmecfjmcblchhpoclj)
-[<img src="https://img.shields.io/badge/dynamic/json?label=edge&query=%24.version&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fhohfhljppjpiemblilibldgppjpclfbl" />](https://microsoftedge.microsoft.com/addons/detail/hohfhljppjpiemblilibldgppjpclfbl)
-[<img src="https://img.shields.io/github/v/release/apades/dmMiniPlayer?color=green" />](https://github.com/apades/dmMiniPlayer/releases/latest)
+把 B 站视频放进置顶小窗，边看课程，边记笔记。弹幕、字幕、播放控制都可以留在小窗里。
 
-</div>
+**当前版本：0.2.22 内测版。** 仓库暂时保持私有，正式版准备好后再开放。部分新功能仍待实机验收。
 
-<p align="center" style="margin-bottom: 0px !important;">
-<img width="800" src="./docs/assets/view.png"><br/>
-</p>
+## 可以做什么
 
-支持最新的画中画API功能，可以播放、发送弹幕，支持字幕，键盘控制进度，更好的画中画播放体验的浏览器插件
+- **两种小窗**：增强小窗提供播放控件和设置；Edge 原生小窗适合更简洁的观看。
+- **熟悉的播放操作**：拖动进度、调节音量和倍速，使用快捷键控制播放。
+- **弹幕与字幕**：调节弹幕显示区域、字号、速度和透明度；选择官方字幕，或使用自己的字幕文件、字幕链接。
+- **历史字幕**：保留前几句内容，方便回看遗漏的话。
+- **高能进度条与已看区间**：查看视频的精彩片段分布与已经看过的部分；无高能数据的视频也能显示已看区间。
+- **本地 AI 字幕（试验功能）**：为没有字幕的视频识别原语言字幕，不需要填写 API Key。
+- **双画面（试验功能）**：一个增强小窗同时观看两路 B 站视频，选择其中一路出声。
 
-- [chrome商店<img src="https://img.shields.io/chrome-web-store/v/nahbabjlllhocabmecfjmcblchhpoclj?label=chrome" />](https://chrome.google.com/webstore/detail/nahbabjlllhocabmecfjmcblchhpoclj)
-- [edge商店<img src="https://img.shields.io/badge/dynamic/json?label=edge&query=%24.version&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fhohfhljppjpiemblilibldgppjpclfbl" /> 更新比较慢，如果有什么紧急bug修复一般都要一周后才能上架](https://microsoftedge.microsoft.com/addons/detail/hohfhljppjpiemblilibldgppjpclfbl)
-- [最新发布<img src="https://img.shields.io/github/v/release/apades/dmMiniPlayer?color=green" />](https://github.com/apades/dmMiniPlayer/releases/latest)
+![播放设置：选择增强小窗或 Edge 原生小窗](docs/assets/guide/playback-settings.png)
 
+## 开始使用
 
-在提问前可以先搜索issue是否有类似的问题，或者先看看[FAQ](https://github.com/apades/dmMiniPlayer/wiki/FAQ%E2%80%90zh)
+1. 准备好维护者提供的内测扩展文件夹。**GitHub 的“Download ZIP”下载的是源码，不能直接作为扩展安装。**
+2. 在 Edge 地址栏输入 `edge://extensions`，打开“开发人员模式”。
+3. 点击“加载解压缩的扩展”，选择包含 `manifest.json` 的文件夹；本项目本地交付的位置是 `dist`。
+4. 打开 B 站视频，点击扩展图标中的 **打开小窗**。也可以将鼠标移到视频上，使用浮动入口。
+5. 在小窗里打开齿轮菜单，选择 **更多播放设置**，调整播放、字幕、弹幕和快捷键。
 
-如果你有什么问题或者功能提议，请到[issues](https://github.com/apades/dmMiniPlayer/issues)里提出
+推荐先用增强小窗。本项目主要面向桌面版 Edge，重点使用场景是 B 站学习视频；其他浏览器与站点不承诺同等体验。
 
-## 🚀 功能
-- 拖拽或者键盘控制画中画窗口的进度条、音量、播放速率等
-- 弹幕播放和发送
-  - bilibili视频 + 直播
-  - 斗鱼直播
-  - 动画疯
-  - 虎牙直播 *
-  - youtube直播 *
-  - twitch直播 *
-  - 抖音直播 *
-- 针对 bilibili、Youtube、Netflix 的特殊功能支持
-  - 视频播放侧边栏，可直接在画中画里切换播放列表、推荐视频
-  - 网站的字幕列表
-  - 进度条的预览功能(Netflix暂不支持)
-- 支持外挂.xml .ass弹幕文件，下载可以使用[Bilibili-Evolved](https://github.com/the1812/Bilibili-Evolved)或[ACG助手](https://chromewebstore.google.com/detail/kpbnombpnpcffllnianjibmpadjolanh)，也可以通过输入bilibili url的下载弹幕并播放
-- 字幕功能
-  - 支持.srt .ass外挂功能
-  - 字幕翻译 + 双语功能
-- 长按右键倍速，逐帧快进快退，截屏等功能 + 可自定快捷键
-- 将网页视频播放器替换为扩展程序的视频播放器
-- 支持绝大多数 https 网站，甚至支持类似Crunchyroll的[EME](https://web.dev/articles/media-eme)版权保护视频、Youtube 嵌入视频。
+→ **[完整使用教程](docs/USER_GUIDE.md)**：安装与更新、字幕来源、本地 AI、双画面和常见问题。
 
-> [!NOTE]
-> *标记为目前只有监听网页弹幕DOM模式，可能会有意料之外的问题
+## 内测范围
 
-## How to Dev
-### env
-- pnpm >=10.0.0
-- node >=24.11.0
+双画面目前最多两路，不支持四路或保存布局；第二路使用 B 站自己的字幕与弹幕。本地 AI 字幕有识别延迟，适合正常倍速播放，需要核对识别结果。
 
-> [!WARNING]
-> If you are using Windows, please make sure you have Unix utils in your env (rm sh etc.)
-> 
-> Or use WSL, or download [cmder](https://cmder.app/)
+仓库目前没有正式版下载。内测包由维护者提供，不要安装原项目的商店版本来代替 LayerPiP。
 
-### dev
-```bash
-pnpm i
-pnpm run dev
-```
-Drag `dist` folder and drop to `chrome://extensions/` page in Chrome (Open development mode before)
+## 反馈
 
-## 📚 主要实现方法
-### 旧版本PIP
-用一个单独canvas画video + 弹幕，再把canvas的stream附加到一个单独的video上，最后开启画中画功能
+请在[本仓库 Issues](https://github.com/SalmonC/LayerPiP/issues)描述遇到的问题，附上扩展版本、操作步骤，以及方便分享的截图。不要附带账号信息、Cookie 或私人字幕内容。
 
-### 新版本docPIP
-使用了[documentPictureInPicture](https://developer.chrome.com/docs/web-platform/document-picture-in-picture/)该API，关于[技术细节在这](https://github.com/apades/dmMiniPlayer/wiki/tech%E2%80%90zh)
+## 署名与许可
 
-> [!NOTE]
-> 该API是[非w3c草案功能](https://wicg.github.io/document-picture-in-picture/)，从chrome 116开始已经强推到stable上了，[非chromium](https://caniuse.com/?search=document-picture-in-picture)目前还没看到能用的，所以其他内核浏览器不打算支持
-> 
-> 如果你是360 qq浏览器这种套壳Chromium的且没有该API，地址栏到`chrome://flags/#document-picture-in-picture-api`查看是否支持开启
-
-> [!WARNING]
-> 如果你使用edge打开有红色tab栏，建议升级到`126.0.2592.102`版本以上
-
-
-## 💖 引用代码
-非常感谢这些项目的开源，让我抄了不少代码节省了很多时间
-
-- [bilibili-evaolved](https://github.com/the1812/Bilibili-Evolved)
-- [douyu-monitor](https://github.com/qianjiachun/douyu-monitor)
-- [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
-- [rc-slider](http://github.com/react-component/slider)
-- [js-cookie](https://github.com/js-cookie/js-cookie)
-- [esbuild-plugin-inline-import](https://github.com/claviska/esbuild-plugin-inline-import)
-- [tsup](https://github.com/egoist/tsup/blob/796fc5030f68f929fecde7c94732e9a586ba7508/src/esbuild/postcss.ts)
-- [tailwindcss-container-queries](https://github.com/tailwindlabs/tailwindcss-container-queries)
-- [ts-key-enum](https://www.npmjs.com/package/ts-key-enum)
-- [@ironkinoko/danmaku](https://github.com/IronKinoko/danmaku)
-- [netflix-subtitle-downloader](https://greasyfork.org/en/scripts/26654-netflix-subtitle-downloader)
-
-## 🍔 投喂
-如果您很喜欢这个项目, 欢迎打赏, 金额随意. 您的支持是我的动力(=・ω・=)
-
-<img src="./docs/assets/donate.png" width="300">
-
-> 🙏 thanks list
-> 
-> - 2025/3/4 我爱吃肉
-> - 2025/6/9 zzzzz
-> - 2025/7/2 真空
-> - 2025/9/18 匿名用户
-
-## 📜 License
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)
+基于 [apades/dmMiniPlayer](https://github.com/apades/dmMiniPlayer) 开发，遵循 [CC BY-NC 4.0](LICENSE)，仅限非商业用途。感谢原作者与贡献者；[完整致谢](docs/ACKNOWLEDGEMENTS.md)。
