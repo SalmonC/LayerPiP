@@ -6,6 +6,7 @@ settings:
 
 patchedDependencies:
   '@rc-component/util': 6fe03dc7954de94716246632d65426b76af83817793a6574e2682fd1bd98b204
+  webext-bridge@6.0.1: 4b03a5e17c52dce33c8440d252b57a87e2357946db6d2f0302be6e185cfe5c1a
 
 importers:
 
@@ -82,7 +83,7 @@ importers:
         version: 13.0.0
       webext-bridge:
         specifier: ^6.0.1
-        version: 6.0.1
+        version: 6.0.1(patch_hash=4b03a5e17c52dce33c8440d252b57a87e2357946db6d2f0302be6e185cfe5c1a)
       webextension-polyfill:
         specifier: ^0.9.0
         version: 0.9.0
@@ -6681,7 +6682,7 @@ snapshots:
 
   web-streams-polyfill@3.3.3: {}
 
-  webext-bridge@6.0.1:
+  webext-bridge@6.0.1(patch_hash=4b03a5e17c52dce33c8440d252b57a87e2357946db6d2f0302be6e185cfe5c1a):
     dependencies:
       '@types/webextension-polyfill': 0.8.3
       nanoevents: 6.0.2

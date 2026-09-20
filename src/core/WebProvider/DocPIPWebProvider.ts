@@ -1,3 +1,5 @@
+import onRouteChange from '@root/inject/csUtils/onRouteChange'
+import { MultiVideoSession } from '@root/core/MultiVideo/session'
 import { PIP_WINDOW_CONFIG } from '@root/shared/storeKey'
 import WebextEvent from '@root/shared/webextEvent'
 import configStore, { videoBorderType } from '@root/store/config'
@@ -19,6 +21,10 @@ export default class DocPIPWebProvider extends WebProvider {
   protected override MiniPlayer = HtmlVideoPlayer
 
   pipWindow?: Window
+  private multiVideo?: MultiVideoSession
+  protected override get commandVideo() {
+    return this.multiVideo?.commandVideo ?? this.webVideo
+  }
 
   override async onOpenPlayer() {
     if (!window.documentPictureInPicture?.requestWindow)
@@ -285,6 +291,36 @@ export default class DocPIPWebProvider extends WebProvider {
     // belonged to the source page. Rebind after DOM adoption without touching
     // the video node; calling updateVideo(sameVideo) can remove it and black out.
     this.miniPlayer.refreshInputWindow()
+
+    if (
+      location.hostname === 'www.bilibili.com' &&
+      /^\/video\//.test(location.pathname)
+    ) {
+      const openMulti = () => {
+        this.multiVideo ??= new MultiVideoSession(
+          pipWindow,
+          playerEl,
+          this.webVideo,
+          () => {
+            this.emit(PlayerEvent.resize)
+            this.miniPlayer.refreshInputWindow()
+          },
+        )
+        this.multiVideo.open()
+      }
+      pipWindow.document.addEventListener('layerpip-open-multi', openMulti)
+      this.addOnUnloadFn(
+        onRouteChange(() => {
+          this.multiVideo?.close()
+          this.multiVideo = undefined
+        }),
+      )
+      this.addOnUnloadFn(() => {
+        this.multiVideo?.close()
+        this.multiVideo = undefined
+        pipWindow.document.removeEventListener('layerpip-open-multi', openMulti)
+      })
+    }
 
     // docPIP有自带的样式，需要覆盖掉
     const docPIPRootStyle = createElement('style', {

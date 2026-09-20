@@ -48,13 +48,14 @@ const HeatBarOverlay: FC<Props> = observer(
     const lineRef = useRef<SVGLineElement>(null)
     const { watched, curve } = highEnergyBarStore
 
+    const showCurve = configStore.highEnergyBar_curve
     const points = useMemo(() => {
-      if (!configStore.highEnergyBar_curve || !curve || duration <= 0) return []
+      if (!showCurve || !curve || duration <= 0) return []
       return downsamplePoints(
         calcPoints(curve.points, curve.stepSec, duration),
         MAX_CURVE_POINTS,
       )
-    }, [curve, duration])
+    }, [curve, duration, showCurve])
 
     const curvePath = useMemo(() => generateBezierCurvePath(points), [points])
     const watchedPath = useMemo(

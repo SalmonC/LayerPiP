@@ -40,6 +40,10 @@ declare module 'webext-bridge' {
       | { state: string; errType?: string }
     >
     [WebextEvent.openSetting]: void
+    [WebextEvent.mergeWatchedRanges]: ProtocolWithReturn<
+      { cid: string; ranges: [number, number][] },
+      [number, number][]
+    >
     [WebextEvent.putSubtitleAsset]: ProtocolWithReturn<
       SubtitleAsset,
       { id: string }

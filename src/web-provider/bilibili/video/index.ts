@@ -60,6 +60,7 @@ export default class BilibiliVideoProvider {
   private lastAid = ''
   private lastCid = ''
   private updateGeneration = 0
+  private heatBarGeneration = 0
 
   async onPlayerInitd() {
     this.update(false)
@@ -73,6 +74,7 @@ export default class BilibiliVideoProvider {
 
   onUnload(): void {
     this.updateGeneration++
+    this.heatBarGeneration++
     // 卸载前把已看区间落盘（`played` 不持久化，且换源会重置）。
     void highEnergyBar.release()
     sendMessage('event-hacker:enable', {
@@ -99,7 +101,8 @@ export default class BilibiliVideoProvider {
    * 避免把网络与持久化混进 provider 或组件。
    */
   async initHighEnergyBar() {
-    const generation = this.updateGeneration
+    const generation = ++this.heatBarGeneration
+    const mediaGeneration = highEnergyBar.suspend()
     let identity: BilibiliVideoIdentity | null = null
     try {
       const info = await getVideoInfoFromUrl(location.href)
@@ -113,10 +116,17 @@ export default class BilibiliVideoProvider {
     } catch (error) {
       console.warn('[highEnergyBar] 解析视频身份失败', error)
     }
-    if (generation !== this.updateGeneration) return
+    if (generation !== this.heatBarGeneration || !this.player.active) return
     // 即使身份解析失败也要 bind：让 controller 知道视频元素换了，
     // 并挂起采集，避免把上一支视频的区间算到新视频上。
-    await highEnergyBar.bind(this.player.webVideo ?? null, identity)
+    await highEnergyBar.bind(
+      this.player.webVideo ?? null,
+      identity,
+      () => {
+        void this.initHighEnergyBar()
+      },
+      mediaGeneration,
+    )
   }
 
   getDanmakus = switchLatest(async () => {

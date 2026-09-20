@@ -64,7 +64,8 @@ export function parsePbp(body: unknown): PbpCurve | null {
     const points = data.events
       ? (data.events as { default?: unknown }).default
       : undefined
-    if (!Array.isArray(points) || points.length < 2) continue
+    if (!Array.isArray(points) || points.length < 2 || points.length > 100_000)
+      continue
     if (
       !points.every(
         (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0,
@@ -86,6 +87,7 @@ export async function fetchPbpCurve(
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   const onOuterAbort = () => controller.abort()
   signal?.addEventListener('abort', onOuterAbort, { once: true })
+  if (signal?.aborted) controller.abort()
 
   try {
     const response = await fetch(buildPbpUrl(identity), {
@@ -102,9 +104,24 @@ export async function fetchPbpCurve(
     const body = await response.json()
     const curve = parsePbp(body)
     if (curve) return { kind: 'ready', curve }
-    // 走到了这里说明响应合法但没有点数组：正常无数据。
-    // 官方在同一种情况下给出 `step_sec=0` 与 `debug.err_id=3`（not enough dm）。
-    return { kind: 'none' }
+    // Only the explicit upstream no-data response is negative-cacheable.
+    // Malformed JSON/changed contracts must remain retryable errors.
+    const modules = body?.modules
+    const noData =
+      Array.isArray(modules) &&
+      modules.some((item: any) => {
+        if (item?.load_mode !== 'pbp') return false
+        try {
+          const debug = item?.params?.data?.debug
+          return (
+            (typeof debug === 'string' ? JSON.parse(debug) : debug)?.err_id ===
+            3
+          )
+        } catch {
+          return false
+        }
+      })
+    return noData ? { kind: 'none' } : { kind: 'error', retryable: true }
   } catch (error) {
     const aborted = (error as { name?: string })?.name === 'AbortError'
     return { kind: 'error', retryable: !signal?.aborted || !aborted }

@@ -1,3 +1,4 @@
+import { isMultiVideoPane } from '@root/core/MultiVideo/pane'
 import {
   createElement,
   getVideoElInitFloatButtonData,
@@ -72,4 +73,4 @@ const handleMousemove = throttle((e: MouseEvent) => {
   initVideoFloatBtn(...getVideoElInitFloatButtonData(videoTarget))
 }, 1000)
 
-window.addEventListener('mousemove', handleMousemove)
+if (!isMultiVideoPane()) window.addEventListener('mousemove', handleMousemove)

@@ -1,17 +1,10 @@
 import { fetchPbpCurve } from '@root/api/bilibili/pbp'
 import type { BilibiliVideoIdentity } from '@root/core/SubtitleSource/types'
-import {
-  WATCHED_RANGES_INDEX,
-  WATCHED_RANGES_PREFIX,
-  watchedRangesKey,
-  type WatchedRangesRecord,
-} from '@root/shared/storeKey'
-import {
-  getBrowserLocalStorage,
-  setBrowserLocalStorage,
-} from '@root/utils/storage'
+import { watchedRangesKey } from '@root/shared/storeKey'
+import WebextEvent from '@root/shared/webextEvent'
+import { getBrowserLocalStorage } from '@root/utils/storage'
 import { mergeRanges } from '@root/utils/highEnergyBar/geometry'
-import Browser from 'webextension-polyfill'
+import { sendMessage } from 'webext-bridge/content-script'
 import { readOfficialWatchedRanges } from './officialWatched'
 import store from './store'
 
@@ -19,8 +12,6 @@ import store from './store'
 const PERSIST_THROTTLE_MS = 10_000
 /** 相邻区间小于该间隔就合并，避免拖动产生大量碎片。 */
 const MERGE_TOLERANCE_SEC = 1.5
-/** 最多保留多少个 cid 的已看记录，超出按最旧淘汰。 */
-const MAX_TRACKED_CIDS = 200
 /** 取数失败后的重试间隔（避免每帧重试，也不永久卡死）。 */
 const CURVE_RETRY_INTERVAL_MS = 30_000
 
@@ -50,78 +41,107 @@ class HighEnergyBarController {
   private curveAbort: AbortController | null = null
   private generation = 0
   private lastCurveAttemptAt = 0
+  private resolveIdentity?: () => void
+  private sourceRevision = 0
+  private boundSourceRevision = 0
+  private boundSource = ''
+  private awaitingSource = false
+  private identity: BilibiliVideoIdentity | null = null
 
-  /** 由 BilibiliVideoProvider 在每次路由/播放器更新时调用。 */
+  /** Immediately fence old samples/responses before asynchronous identity lookup. */
+  suspend() {
+    this.suspended = true
+    this.officialLoadedFor = ''
+    this.generation++
+    this.curveAbort?.abort()
+    void this.persist()
+    return this.generation
+  }
+
   async bind(
     video: HTMLVideoElement | null,
     identity: BilibiliVideoIdentity | null,
+    resolveIdentity?: () => void,
+    expectedGeneration = this.generation,
   ) {
+    if (expectedGeneration !== this.generation) return
+    const sameVideo = this.video === video
+    const generation = ++this.generation
+    const cid = identity?.cid ?? ''
     if (this.video !== video) {
+      if (!this.suspended) this.readPlayed()
       this.detachVideo()
       this.video = video
       if (video) this.attachVideo(video)
     }
+    this.resolveIdentity = resolveIdentity
+    this.identity = identity
     store.setDuration(video?.duration ?? 0)
-
-    const cid = identity?.cid ?? ''
     if (cid !== this.cid) {
-      await this.switchCid(cid)
-      if (identity && cid) void this.loadCurve(identity)
-      return
+      // A route can resolve before the media resource changes. Do not attribute
+      // the old element's played ranges to the new cid during that interval.
+      this.awaitingSource =
+        !!this.cid &&
+        sameVideo &&
+        this.boundSource === video?.currentSrc &&
+        this.boundSourceRevision === this.sourceRevision
+      // Snapshot the old cid synchronously; never await storage before switching.
+      void this.persist()
+      this.curveAbort?.abort()
+      this.cid = cid
+      this.ownRanges = []
+      this.officialRanges = []
+      this.officialLoadedFor = ''
+      store.reset(cid)
     }
-    // 同一个 cid：只有在之前取数失败且已过退避时间时才重试。
+    this.boundSource = video?.currentSrc ?? ''
+    this.boundSourceRevision = this.sourceRevision
+    this.suspended = !cid || !video || this.awaitingSource
+    if (this.suspended) return
+    try {
+      const record = await getBrowserLocalStorage(watchedRangesKey(cid))
+      if (generation !== this.generation) return
+      this.ownRanges = mergeRanges(
+        [...this.ownRanges, ...(record?.ranges ?? [])],
+        MERGE_TOLERANCE_SEC,
+      )
+    } catch (error) {
+      if (generation !== this.generation) return
+      console.warn('[highEnergyBar] 读取已看区间失败', error)
+    }
+    this.readPlayed()
+    this.publish()
+    void this.loadOfficialRanges()
     if (
       identity &&
-      cid &&
-      store.curveState === 'error' &&
-      Date.now() - this.lastCurveAttemptAt > CURVE_RETRY_INTERVAL_MS
+      (store.curveState === 'idle' ||
+        store.curveState === 'loading' ||
+        (store.curveState === 'error' &&
+          Date.now() - this.lastCurveAttemptAt > CURVE_RETRY_INTERVAL_MS))
     )
       void this.loadCurve(identity)
   }
 
-  /** 小窗关闭/页面卸载时调用，保证不丢最后一段。 */
+  /** Release also clears the video reference so reopening attaches listeners. */
   async release() {
+    if (!this.suspended) this.readPlayed()
+    const pending = this.persist()
     this.detachVideo()
+    this.video = null
+    this.resolveIdentity = undefined
+    this.identity = null
     this.curveAbort?.abort()
     this.curveAbort = null
     this.generation++
-    await this.persist()
-  }
-
-  /** 清除某个视频的已看记录。 */
-  async clearWatched(cid: string) {
-    await Browser.storage.local.remove(WATCHED_RANGES_PREFIX + cid)
-    const index = (await getBrowserLocalStorage(WATCHED_RANGES_INDEX)) ?? []
-    await setBrowserLocalStorage(
-      WATCHED_RANGES_INDEX,
-      index.filter((entry) => entry.cid !== cid),
-    )
-    if (cid === this.cid) {
-      this.ownRanges = []
-      // 官方记录在页面源的 pbp3 里，只读、不由我们清除。
-      this.publish()
-    }
-  }
-
-  private async switchCid(cid: string) {
-    // 先把上一个 cid 的结果落盘，再切换状态。
-    await this.persist()
-    this.generation++
-    this.cid = cid
+    this.cid = ''
+    this.awaitingSource = false
+    this.boundSource = ''
+    this.suspended = true
     this.ownRanges = []
     this.officialRanges = []
     this.officialLoadedFor = ''
-    this.suspended = false
-    store.reset(cid)
-    if (!cid) return
-
-    const record = await getBrowserLocalStorage(watchedRangesKey(cid))
-    // 读回来也做一次并集：我们自己的历史数据可能有相邻/重叠碎片。
-    this.ownRanges = mergeRanges(record?.ranges ?? [], MERGE_TOLERANCE_SEC)
-    this.publish()
-
-    // 官方记录需要 duration 才能把比例换算成秒；此时可能还没拿到，交给 durationchange 重试。
-    void this.loadOfficialRanges()
+    store.reset('')
+    await pending
   }
 
   /**
@@ -134,13 +154,14 @@ class HighEnergyBarController {
    */
   private async loadOfficialRanges() {
     const cid = this.cid
-    if (!cid || this.officialLoadedFor === cid) return
+    const generation = this.generation
+    if (!cid || this.suspended || this.officialLoadedFor === cid) return
     const duration = this.video?.duration ?? 0
     if (!Number.isFinite(duration) || duration <= 0) return
 
     this.officialLoadedFor = cid
     const ranges = await readOfficialWatchedRanges(cid, duration)
-    if (cid !== this.cid) return
+    if (generation !== this.generation) return
     this.officialRanges = mergeRanges(ranges, MERGE_TOLERANCE_SEC)
     this.publish()
   }
@@ -157,7 +178,7 @@ class HighEnergyBarController {
 
   private readPlayed() {
     const video = this.video
-    if (!video) return
+    if (!video || !this.cid || this.suspended) return
     const ranges: [number, number][] = []
     try {
       for (let i = 0; i < video.played.length; i++) {
@@ -206,40 +227,26 @@ class HighEnergyBarController {
     // 只持久化我们自己采集到的部分；官方 `pbp3` 的数据只读、不回写。
     if (!cid || this.ownRanges.length === 0) return
 
+    const ranges = this.ownRanges.map(([start, end]): [number, number] => [
+      start,
+      end,
+    ])
+    const generation = this.generation
     try {
-      // 读-并-写：即使同一 cid 同时有别的标签页在写，并集也不会丢区间。
-      const existing = await getBrowserLocalStorage(watchedRangesKey(cid))
-      const merged = mergeRanges(
-        [...(existing?.ranges ?? []), ...this.ownRanges],
-        MERGE_TOLERANCE_SEC,
-      )
-      if (cid === this.cid) this.ownRanges = merged
-      await setBrowserLocalStorage(watchedRangesKey(cid), {
-        ranges: merged,
-        updatedAt: Date.now(),
-      } satisfies WatchedRangesRecord)
-      await this.touchIndex(cid)
+      const merged = await sendMessage(WebextEvent.mergeWatchedRanges, {
+        cid,
+        ranges,
+      })
+      if (generation === this.generation && cid === this.cid) {
+        this.ownRanges = mergeRanges(
+          [...this.ownRanges, ...merged],
+          MERGE_TOLERANCE_SEC,
+        )
+        this.publish()
+      }
     } catch (error) {
       console.warn('[highEnergyBar] 保存已看区间失败', error)
     }
-  }
-
-  private async touchIndex(cid: string) {
-    const index = (await getBrowserLocalStorage(WATCHED_RANGES_INDEX)) ?? []
-    const next = index.filter((entry) => entry.cid !== cid)
-    next.push({ cid, updatedAt: Date.now() })
-    if (next.length <= MAX_TRACKED_CIDS) {
-      await setBrowserLocalStorage(WATCHED_RANGES_INDEX, next)
-      return
-    }
-    next.sort((a, b) => a.updatedAt - b.updatedAt)
-    const drop = next.splice(0, next.length - MAX_TRACKED_CIDS)
-    await Promise.all(
-      drop.map((entry) =>
-        Browser.storage.local.remove(WATCHED_RANGES_PREFIX + entry.cid),
-      ),
-    )
-    await setBrowserLocalStorage(WATCHED_RANGES_INDEX, next)
   }
 
   private async loadCurve(identity: BilibiliVideoIdentity) {
@@ -250,7 +257,7 @@ class HighEnergyBarController {
     this.curveAbort = abort
     store.setCurveLoading()
     const result = await fetchPbpCurve(identity, abort.signal)
-    if (generation !== this.generation) return
+    if (generation !== this.generation || abort.signal.aborted) return
     if (result.kind === 'ready') store.setCurve(result.curve)
     else if (result.kind === 'none') store.setCurve(null)
     else store.setCurveError()
@@ -260,6 +267,12 @@ class HighEnergyBarController {
     if (this.suspended) return
     this.readPlayed()
     this.schedulePersist()
+    if (
+      this.identity &&
+      store.curveState === 'error' &&
+      Date.now() - this.lastCurveAttemptAt > CURVE_RETRY_INTERVAL_MS
+    )
+      void this.loadCurve(this.identity)
   }
   private onDurationChange = () => {
     store.setDuration(this.video?.duration ?? 0)
@@ -274,14 +287,19 @@ class HighEnergyBarController {
   }
   /** 媒体源即将/正在更换：`played` 会被重置，先停采集，等新的 identity。 */
   private onSourceChanging = () => {
-    this.suspended = true
-    void this.persist()
+    this.sourceRevision++
+    this.awaitingSource = false
+    this.suspend()
+  }
+  private onMetadata = () => {
+    this.onDurationChange()
+    this.resolveIdentity?.()
   }
 
   private attachVideo(video: HTMLVideoElement) {
     video.addEventListener('timeupdate', this.onTimeupdate)
     video.addEventListener('durationchange', this.onDurationChange)
-    video.addEventListener('loadedmetadata', this.onDurationChange)
+    video.addEventListener('loadedmetadata', this.onMetadata)
     video.addEventListener('pause', this.onPauseOrEnded)
     video.addEventListener('ended', this.onPauseOrEnded)
     video.addEventListener('emptied', this.onSourceChanging)
@@ -293,7 +311,7 @@ class HighEnergyBarController {
     if (!video) return
     video.removeEventListener('timeupdate', this.onTimeupdate)
     video.removeEventListener('durationchange', this.onDurationChange)
-    video.removeEventListener('loadedmetadata', this.onDurationChange)
+    video.removeEventListener('loadedmetadata', this.onMetadata)
     video.removeEventListener('pause', this.onPauseOrEnded)
     video.removeEventListener('ended', this.onPauseOrEnded)
     video.removeEventListener('emptied', this.onSourceChanging)

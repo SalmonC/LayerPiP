@@ -13,6 +13,7 @@ enum WebextEvent {
   requestVideoPIP = 'requestVideoPIP',
   openSetting = 'openSetting',
 
+  mergeWatchedRanges = 'mergeWatchedRanges',
   putSubtitleAsset = 'putSubtitleAsset',
   getSubtitleAsset = 'getSubtitleAsset',
   deleteSubtitleAsset = 'deleteSubtitleAsset',

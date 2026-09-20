@@ -1,0 +1,116 @@
+diff --git a/dist/background.cjs b/dist/background.cjs
+--- a/dist/background.cjs
++++ b/dist/background.cjs
+@@ -506,6 +506,9 @@
+     });
+   });
+   incomingPort.onDisconnect.addListener(() => {
++    const error = chrome.runtime.lastError;
++    if (error && !/back.forward cache/i.test(error.message || ""))
++      console.warn("[webext-bridge] port disconnected", error.message);
+     var _a2, _b;
+     if (((_a2 = connMap.get(connArgs.endpointName)) == null ? void 0 : _a2.fingerprint) === connArgs.fingerprint)
+       connMap.delete(connArgs.endpointName);
+diff --git a/dist/background.js b/dist/background.js
+--- a/dist/background.js
++++ b/dist/background.js
+@@ -180,6 +180,9 @@
+     });
+   });
+   incomingPort.onDisconnect.addListener(() => {
++    const error = chrome.runtime.lastError;
++    if (error && !/back.forward cache/i.test(error.message || ""))
++      console.warn("[webext-bridge] port disconnected", error.message);
+     var _a2, _b;
+     if (((_a2 = connMap.get(connArgs.endpointName)) == null ? void 0 : _a2.fingerprint) === connArgs.fingerprint)
+       connMap.delete(connArgs.endpointName);
+diff --git a/dist/chunk-E2HJRHOS.js b/dist/chunk-E2HJRHOS.js
+--- a/dist/chunk-E2HJRHOS.js
++++ b/dist/chunk-E2HJRHOS.js
+@@ -63,7 +63,13 @@
+       })
+     });
+     port.onMessage.addListener(handleMessage);
+-    port.onDisconnect.addListener(connect);
++    port.onDisconnect.addListener(() => {
++      // Read lastError synchronously: BFCache disconnects are expected.
++      const error = chrome.runtime.lastError;
++      if (error && !/back.forward cache/i.test(error.message || ""))
++        console.warn("[webext-bridge] port disconnected", error.message);
++      connect();
++    });
+     PortMessage.toBackground(port, {
+       type: "sync",
+       pendingResponses: pendingResponses.entries(),
+diff --git a/dist/content-script.cjs b/dist/content-script.cjs
+--- a/dist/content-script.cjs
++++ b/dist/content-script.cjs
+@@ -459,7 +459,13 @@
+       })
+     });
+     port2.onMessage.addListener(handleMessage);
+-    port2.onDisconnect.addListener(connect);
++    port2.onDisconnect.addListener(() => {
++      // Read lastError synchronously: BFCache disconnects are expected.
++      const error = chrome.runtime.lastError;
++      if (error && !/back.forward cache/i.test(error.message || ""))
++        console.warn("[webext-bridge] port disconnected", error.message);
++      connect();
++    });
+     PortMessage.toBackground(port2, {
+       type: "sync",
+       pendingResponses: pendingResponses.entries(),
+diff --git a/dist/devtools.cjs b/dist/devtools.cjs
+--- a/dist/devtools.cjs
++++ b/dist/devtools.cjs
+@@ -394,7 +394,13 @@
+       })
+     });
+     port2.onMessage.addListener(handleMessage);
+-    port2.onDisconnect.addListener(connect);
++    port2.onDisconnect.addListener(() => {
++      // Read lastError synchronously: BFCache disconnects are expected.
++      const error = chrome.runtime.lastError;
++      if (error && !/back.forward cache/i.test(error.message || ""))
++        console.warn("[webext-bridge] port disconnected", error.message);
++      connect();
++    });
+     PortMessage.toBackground(port2, {
+       type: "sync",
+       pendingResponses: pendingResponses.entries(),
+diff --git a/dist/options.cjs b/dist/options.cjs
+--- a/dist/options.cjs
++++ b/dist/options.cjs
+@@ -393,7 +393,13 @@
+       })
+     });
+     port2.onMessage.addListener(handleMessage);
+-    port2.onDisconnect.addListener(connect);
++    port2.onDisconnect.addListener(() => {
++      // Read lastError synchronously: BFCache disconnects are expected.
++      const error = chrome.runtime.lastError;
++      if (error && !/back.forward cache/i.test(error.message || ""))
++        console.warn("[webext-bridge] port disconnected", error.message);
++      connect();
++    });
+     PortMessage.toBackground(port2, {
+       type: "sync",
+       pendingResponses: pendingResponses.entries(),
+diff --git a/dist/popup.cjs b/dist/popup.cjs
+--- a/dist/popup.cjs
++++ b/dist/popup.cjs
+@@ -393,7 +393,13 @@
+       })
+     });
+     port2.onMessage.addListener(handleMessage);
+-    port2.onDisconnect.addListener(connect);
++    port2.onDisconnect.addListener(() => {
++      // Read lastError synchronously: BFCache disconnects are expected.
++      const error = chrome.runtime.lastError;
++      if (error && !/back.forward cache/i.test(error.message || ""))
++        console.warn("[webext-bridge] port disconnected", error.message);
++      connect();
++    });
+     PortMessage.toBackground(port2, {
+       type: "sync",
+       pendingResponses: pendingResponses.entries(),

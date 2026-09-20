@@ -39,6 +39,10 @@ export default abstract class WebProvider
   extends EventBus
   implements ExtendComponent
 {
+  protected get commandVideo(): HTMLVideoElement {
+    return this.webVideo
+  }
+
   // videoChanger: VideoChanger
   subtitleManager!: SubtitleManager
   danmakuEngine?: DanmakuEngine
@@ -312,7 +316,7 @@ export default abstract class WebProvider
       onMessage('PIP-action', async (req) => {
         console.log('PIP-action', req)
         if (!this.miniPlayer || !this.webVideo) return
-        const videoEl = this.webVideo
+        const videoEl = this.commandVideo
         switch ((req?.data as any)?.body) {
           case 'back': {
             videoEl.currentTime -= 5

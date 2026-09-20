@@ -1,8 +1,10 @@
+import { isMultiVideoPane } from '@root/core/MultiVideo/pane'
 import { ATTR_DISABLE } from '@root/shared/config'
 import { LOCALE } from '@root/shared/storeKey'
 import { getBrowserLocalStorage } from '@root/utils/storage'
 ;(async () => {
-  if (document.documentElement.getAttribute(ATTR_DISABLE)) return
+  if (isMultiVideoPane() || document.documentElement.getAttribute(ATTR_DISABLE))
+    return
 
   await getBrowserLocalStorage(LOCALE).then((LOCALE) => {
     if (!LOCALE) return

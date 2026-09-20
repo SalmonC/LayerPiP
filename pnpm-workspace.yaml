@@ -8,3 +8,4 @@ onlyBuiltDependencies:
 
 patchedDependencies:
   '@rc-component/util': patches/@rc-component__util.patch
+  'webext-bridge@6.0.1': patches/webext-bridge.patch

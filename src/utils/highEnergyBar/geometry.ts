@@ -45,6 +45,9 @@ export function calcPoints(
     return []
 
   const expected = Math.floor(duration / stepSec)
+  // Bound allocation even for a corrupt upstream sampling interval.
+  if (!Number.isFinite(expected) || expected > 100_000 || data.length > 100_000)
+    return []
   const values =
     expected > data.length
       ? data.concat(new Array<number>(expected - data.length).fill(0))
@@ -130,11 +133,13 @@ export function mergeRanges(
 ): [number, number][] {
   const valid = ranges
     .filter(
-      ([start, end]) =>
-        Number.isFinite(start) &&
-        Number.isFinite(end) &&
-        end > start &&
-        start >= 0,
+      (range) =>
+        Array.isArray(range) &&
+        range.length >= 2 &&
+        Number.isFinite(range[0]) &&
+        Number.isFinite(range[1]) &&
+        range[1] > range[0] &&
+        range[0] >= 0,
     )
     .map(([start, end]) => [start, end] as [number, number])
     .sort((a, b) => a[0] - b[0])

@@ -1,3 +1,4 @@
+import { isMultiVideoPane } from '@root/core/MultiVideo/pane'
 import API_bilibili from '@root/api/bilibili'
 import { PlayerEvent } from '@root/core/event'
 import { WebProvider } from '@root/core/WebProvider'
@@ -33,7 +34,7 @@ import './floatButton'
 if (isTop) {
   console.log('run content')
   main()
-} else {
+} else if (!isMultiVideoPane()) {
   // 处理top发来的请求检测video标签
   onPostMessage(PostMessageEvent.detectVideo_req, () => {
     postMessageToTop(

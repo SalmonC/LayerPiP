@@ -41,7 +41,10 @@ function openExistingDatabase(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
     let settled = false
     const finish = (db: IDBDatabase | null) => {
-      if (settled) return
+      if (settled) {
+        db?.close()
+        return
+      }
       settled = true
       resolve(db)
     }

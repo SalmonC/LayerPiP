@@ -45,7 +45,7 @@ const Dropdown: FC<Props> = ({ playerMenu = false, menuRender, ...props }) => {
       const triggerTop = containerRef.current?.getBoundingClientRect().top
       const available =
         typeof triggerTop === 'number' && triggerTop > 0
-          ? triggerTop - 12
+          ? triggerTop - root.getBoundingClientRect().top - 12
           : root.clientHeight - 60
       const next = `${Math.max(64, Math.floor(available))}px`
       // 值没变就不要重设：本函数会被下面观察弹层尺寸的 ResizeObserver 调用，

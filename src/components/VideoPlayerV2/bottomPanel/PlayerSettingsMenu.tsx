@@ -76,6 +76,23 @@ export default observer(function PlayerSettingsMenu({
                   适配窗口 <kbd>R</kbd>
                 </button>
               )}
+              {location.hostname === 'www.bilibili.com' &&
+                /^\/video\//.test(location.pathname) &&
+                videoPlayerRef.current &&
+                videoPlayerRef.current.ownerDocument !== document && (
+                  <button
+                    type="button"
+                    className="fc-menu-item"
+                    onClick={() => {
+                      close()
+                      videoPlayerRef.current?.ownerDocument.dispatchEvent(
+                        new Event('layerpip-open-multi'),
+                      )
+                    }}
+                  >
+                    多画面 <RightOutlined />
+                  </button>
+                )}
               {webVideo && (
                 <button
                   type="button"
